@@ -735,14 +735,25 @@ def test_ps_s3_notification_configuration_admin_on_master():
     assert_equal(status/100, 2)
 
     # list notification
-    _, result = admin(['notification', 'list', '--bucket', bucket_name])
-    assert_equal(result, 0)
+    result = admin(['notification', 'list', '--bucket', bucket_name])
+    parsed_result = json.loads(result[0])
+    assert_equal(len(parsed_result['notifications']), 3)
+    assert_equal(result[1], 0)
 
     # get notification 1
     result = admin(['notification', 'get', '--bucket', bucket_name, '--notification-id', notification_name+'_1'])
     parsed_result = json.loads(result[0])
     assert_equal(parsed_result['Id'], notification_name+'_1')
     assert_equal(result[1], 0)
+
+    # remove notification 3
+    _, result = admin(['notification', 'rm', '--bucket', bucket_name, '--notification-id', notification_name+'_3'])
+    assert_equal(result, 0)
+
+    # get topic 1 via commandline
+    result = admin(['topic', 'get', '--topic', topic_name+'_1'])
+    parsed_result = json.loads(result[0])
+    assert_equal(parsed_result['arn'], topic_arn)
 
     # delete topics
     _, result = admin(['topic', 'rm', '--topic', topic_name+'_1'])
@@ -752,6 +763,17 @@ def test_ps_s3_notification_configuration_admin_on_master():
     result = admin(['topic', 'list'])
     parsed_result = json.loads(result[0])
     assert_equal(len(parsed_result['topics']), 0)
+
+    # delete notifications
+    _, result = admin(['notification', 'rm', '--bucket', bucket_name])
+    assert_equal(result, 0)
+
+    # list notification, make sure it is empty
+    result = admin(['notification', 'list', '--bucket', bucket_name])
+    parsed_result = json.loads(result[0])
+    print()
+    print(parsed_result)
+    assert_equal(result[1], 0)
 
 @attr('modification_required')
 def test_ps_s3_topic_with_secret_on_master():
