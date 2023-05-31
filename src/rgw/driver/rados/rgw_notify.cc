@@ -61,9 +61,6 @@ class Manager : public DoutPrefixProvider {
   const uint32_t queue_idle_sleep_us;
   const utime_t failover_time;
   CephContext* const cct;
-public:
-  librados::IoCtx& rados_ioctx;
-private:
   static constexpr auto COOKIE_LEN = 16;
   const std::string lock_cookie;
   boost::asio::io_context io_context;
@@ -72,6 +69,9 @@ private:
   std::vector<std::thread> workers;
   const uint32_t stale_reservations_period_s;
   const uint32_t reservations_cleanup_period_s;
+public:
+  librados::IoCtx& rados_ioctx;
+private:
 
   CephContext *get_cct() const override { return cct; }
   unsigned get_subsys() const override { return dout_subsys; }
@@ -483,12 +483,12 @@ public:
     queue_idle_sleep_us(_queue_idle_sleep_us),
     failover_time(std::chrono::milliseconds(failover_time_ms)),
     cct(_cct),
-    rados_ioctx(store->getRados()->get_notif_pool_ctx()),
     lock_cookie(gen_rand_alphanumeric(cct, COOKIE_LEN)),
     work_guard(boost::asio::make_work_guard(io_context)),
     worker_count(_worker_count),
     stale_reservations_period_s(_stale_reservations_period_s),
-    reservations_cleanup_period_s(_reservations_cleanup_period_s)
+    reservations_cleanup_period_s(_reservations_cleanup_period_s),
+    rados_ioctx(store->getRados()->get_notif_pool_ctx())
     {
       spawn::spawn(io_context, [this] (yield_context yield) {
             process_queues(yield);
