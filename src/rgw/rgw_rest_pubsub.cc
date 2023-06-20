@@ -745,7 +745,7 @@ int RGWPSCreateNotifOp::verify_permission(optional_yield y) {
 
 // command (extension to S3): DELETE /bucket?notification[=<notification-id>]
 class RGWPSDeleteNotifOp : public RGWDefaultResponseOp {
-  int get_params(std::string& notif_name) const {
+  int get_params(std::string& notif_name, std::string& topic_name) const {
     bool exists;
     notif_name = s->info.args.get("notification", &exists);
     if (!exists) {
@@ -756,6 +756,16 @@ class RGWPSDeleteNotifOp : public RGWDefaultResponseOp {
       ldpp_dout(this, 1) << "request must be on a bucket" << dendl;
       return -EINVAL;
     }
+
+    const auto topic_arn = rgw::ARN::parse((s->info.args.get("TopicArn")));
+
+    if (!topic_arn || topic_arn->resource.empty()) {
+      ldpp_dout(this, 1) << "Delte Notification Action 'TopicArn' argument is missing or invalid" << dendl;
+      return -EINVAL;
+    }
+
+    topic_name = topic_arn->resource;
+
     return 0;
   }
 
@@ -775,7 +785,8 @@ public:
 
 void RGWPSDeleteNotifOp::execute(optional_yield y) {
   std::string notif_name;
-  op_ret = get_params(notif_name);
+  std::string topic_name;
+  op_ret = get_params(notif_name, topic_name);
   if (op_ret < 0) {
     return;
   }

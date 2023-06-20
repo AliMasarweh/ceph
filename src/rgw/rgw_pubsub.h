@@ -581,7 +581,9 @@ public:
     // get a bucket_topic with by its name and populate it into "result"
     // return -ENOENT if the topic does not exists
     // return 0 on success, error code otherwise
-    int get_notification_by_id(const DoutPrefixProvider *dpp, const std::string& notification_id, rgw_pubsub_topic_filter& result, optional_yield y) const;
+    int get_notification_by_id(const DoutPrefixProvider *dpp, const std::string &notification_id,
+                               const std::string &topic_name, rgw_pubsub_topic_filter &result,
+                               optional_yield y) const;
     // adds a topic + filter (event list, and possibly name metadata or tags filters) to a bucket
     // assigning a notification name is optional (needed for S3 compatible notifications)
     // if the topic already exist on the bucket, the filter event list may be updated

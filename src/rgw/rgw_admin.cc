@@ -10476,6 +10476,10 @@ next:
       cerr << "ERROR: notification-id was not provided (via --notification-id)" << std::endl;
       return EINVAL;
     }
+    if (topic_name.empty()) {
+      cerr << "ERROR: topic name was not provided (via --topic)" << std::endl;
+      return EINVAL;
+    }
     if (bucket_name.empty()) {
       cerr << "ERROR: bucket name was not provided (via --bucket)" << std::endl;
       return EINVAL;
@@ -10489,16 +10493,18 @@ next:
 
     RGWPubSub ps(driver, tenant);
 
-    rgw_pubsub_bucket_topics bucket_topics;
-    const RGWPubSub::Bucket b(ps, bucket.get());
-    ret = b.get_topics(dpp(), bucket_topics, null_yield);
-    if (ret < 0 && ret != -ENOENT) {
-      cerr << "ERROR: could not get bucket notifications: " << cpp_strerror(-ret) << std::endl;
+    rgw_pubsub_topic topic;
+    ret = ps.get_topic(dpp(), topic_name, topic, null_yield);
+    if (ret < 0) {
+      cerr << "ERROR: could not get topic: " << cpp_strerror(-ret) << std::endl;
       return -ret;
     }
 
+    rgw_pubsub_bucket_topics bucket_topics;
+    const RGWPubSub::Bucket b(ps, bucket.get());
+
     rgw_pubsub_topic_filter bucket_topic;
-    ret = b.get_notification_by_id(dpp(), notification_id, bucket_topic, null_yield);
+    ret = b.get_notification_by_id(dpp(), notification_id, topic_name, bucket_topic, null_yield);
     if (ret < 0) {
       cerr << "ERROR: could not get notification: " << cpp_strerror(-ret) << std::endl;
       return -ret;
@@ -10531,6 +10537,10 @@ next:
   if (opt_cmd == OPT::PUBSUB_NOTIFICATION_RM) {
     if (bucket_name.empty()) {
       cerr << "ERROR: bucket name was not provided (via --bucket)" << std::endl;
+      return EINVAL;
+    }
+    if (!notification_id.empty() && topic_name.empty()) {
+      cerr << "ERROR: topic name of notification was not provided (via --topic)" << std::endl;
       return EINVAL;
     }
 
