@@ -811,15 +811,8 @@ void RGWPSDeleteNotifOp::execute(optional_yield y) {
   }
 
   if (!notif_name.empty()) {
-    // delete a specific notification
-    const auto unique_topic = find_unique_topic(bucket_topics, notif_name);
-    if (unique_topic) {
-      const auto unique_topic_name = unique_topic->get().topic.name;
-      op_ret = remove_notification_by_topic(this, unique_topic_name, b, y, ps);
-      return;
-    }
-    // notification to be removed is not found - considered success
-    ldpp_dout(this, 20) << "notification '" << notif_name << "' already removed" << dendl;
+    const auto unique_topic_name = topic_to_unique(notif_name, topic_name);
+    op_ret = remove_notification_by_topic(this, unique_topic_name, b, y, ps);
     return;
   }
 

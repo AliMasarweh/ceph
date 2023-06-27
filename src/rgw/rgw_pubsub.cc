@@ -644,8 +644,8 @@ int RGWPubSub::Bucket::remove_notification_inner(const DoutPrefixProvider *dpp, 
   return 0;
 }
 
-int RGWPubSub::Bucket::remove_notification_by_id(const DoutPrefixProvider *dpp, const std::string &notif_id,
-                                                 const std::string &topic_name, optional_yield y) const
+int RGWPubSub::Bucket::remove_notification_by_id_and_topic_name(const DoutPrefixProvider *dpp, const std::string &notif_id,
+                                                                const std::string &topic_name, optional_yield y) const
 {
   return remove_notification_inner(dpp, unique_notif_name(notif_id, topic_name), y);
 }

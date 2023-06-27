@@ -10564,7 +10564,7 @@ next:
     if(notification_id.empty()) {
       ret = b.remove_notifications(dpp(), null_yield);
     } else {
-      ret = b.remove_notification_by_id(dpp(), notification_id, topic_name, null_yield);
+      ret = b.remove_notification_by_id_and_topic_name(dpp(), notification_id, topic_name, null_yield);
     }
   }
 
