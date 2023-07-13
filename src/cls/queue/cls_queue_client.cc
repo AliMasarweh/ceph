@@ -78,7 +78,7 @@ int cls_queue_list_entries(IoCtx& io_ctx, const string& oid, const string& marke
   return 0;
 }
 
-void cls_queue_remove_entries(ObjectWriteOperation& op, const string& end_marker)
+void cls_queue_remove_entries(ObjectWriteOperation &op, const string &end_marker)
 {
   bufferlist in, out;
   cls_queue_remove_op rem_op;
