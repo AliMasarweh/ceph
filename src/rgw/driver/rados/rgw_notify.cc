@@ -405,10 +405,10 @@ private:
       if (remove_entries) {
         uint64_t entries_to_remove = 0;
         for (const auto& entry: entries) {
-          entries_to_remove++;
           if (end_marker == entry.marker) {
             break;
           }
+          entries_to_remove++;
         }
 
         librados::ObjectWriteOperation op;
