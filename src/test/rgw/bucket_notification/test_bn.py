@@ -3247,10 +3247,10 @@ def create_persistency_config_string(config_dict):
 
     return str_ret[:-1]
 
-@attr('basic_test')
+@attr('ali_basic_test_2')
 def test_ps_s3_persistent_topic_configs_ttl():
     """ test persistent topic configurations with time_to_live """
-    config_dict = {"time_to_live": 30, "max_retries": "None", "retry_sleep_duration": "None"}
+    config_dict = {"time_to_live": 5, "max_retries": "None", "retry_sleep_duration": "None"}
     buffer = 10
     persistency_time =config_dict["time_to_live"] + buffer
 
