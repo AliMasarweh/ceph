@@ -3177,7 +3177,7 @@ def ps_s3_persistent_topic_configs(persistency_time, config_dict):
     assert_equal(result[1], 0)
 
     # create objects in the bucket (async)
-    number_of_objects = 10
+    number_of_objects = 1000
     client_threads = []
     start_time = time.time()
     for i in range(number_of_objects):
@@ -3250,17 +3250,17 @@ def create_persistency_config_string(config_dict):
 @attr('ali_basic_test_2')
 def test_ps_s3_persistent_topic_configs_ttl():
     """ test persistent topic configurations with time_to_live """
-    config_dict = {"time_to_live": 5, "max_retries": "None", "retry_sleep_duration": "None"}
+    config_dict = {"time_to_live": 30, "max_retries": "None", "retry_sleep_duration": "None"}
     buffer = 10
     persistency_time =config_dict["time_to_live"] + buffer
 
     ps_s3_persistent_topic_configs(persistency_time, config_dict)
 
-@attr('basic_test')
+@attr('ali_basic_test')
 def test_ps_s3_persistent_topic_configs_max_retries():
     """ test persistent topic configurations with max_retries and retry_sleep_duration """
     config_dict = {"time_to_live": "None", "max_retries": 30, "retry_sleep_duration": 1}
-    buffer = 10
+    buffer = 20
     persistency_time = config_dict["max_retries"]*config_dict["retry_sleep_duration"] + buffer
 
     ps_s3_persistent_topic_configs(persistency_time, config_dict)
