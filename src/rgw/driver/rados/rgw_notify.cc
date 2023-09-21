@@ -206,6 +206,14 @@ private:
       return EntryProcessingResult::Failure;
     }
 
+    ldpp_dout(this, 20) << "Ali debug | user id: " << event_entry.event.userIdentity << dendl;
+    ldpp_dout(this, 20) << "Ali debug | user id: " << event_entry.event.userIdentity << dendl;
+    ldpp_dout(this, 20) << "Ali debug | user id: " << event_entry.event.userIdentity << dendl;
+    ldpp_dout(this, 20) << "Ali debug | bucket_ownerIdentity: " << event_entry.event.bucket_ownerIdentity << dendl;
+    ldpp_dout(this, 20) << "Ali debug | bucket_name: " << event_entry.event.bucket_name << dendl;
+    ldpp_dout(this, 20) << "Ali debug | bucket_arn: " << event_entry.event.bucket_arn << dendl;
+    ldpp_dout(this, 20) << "Ali debug | bucket_id: " << event_entry.event.bucket_id << dendl;
+
     const auto topic_persistency_ttl = event_entry.time_to_live != DEFAULT_GLOBAL_VALUE ?
         event_entry.time_to_live : conf->rgw_topic_persistency_time_to_live;
     const auto topic_persistency_max_retries = event_entry.max_retries != DEFAULT_GLOBAL_VALUE ?
