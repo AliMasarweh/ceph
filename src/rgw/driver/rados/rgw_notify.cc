@@ -946,7 +946,7 @@ int publish_commit(rgw::sal::Object* obj,
       event_entry.push_endpoint_args =
 	std::move(topic.cfg.dest.push_endpoint_args);
       event_entry.arn_topic = topic.cfg.dest.arn_topic;
-      event_entry.creation_time = ceph::coarse_real_clock::now();
+      event_entry.creation_time = ceph::coarse_real_clock::zero();
       event_entry.time_to_live = topic.cfg.dest.time_to_live;
       event_entry.max_retries = topic.cfg.dest.max_retries;
       event_entry.retry_sleep_duration = topic.cfg.dest.retry_sleep_duration;
