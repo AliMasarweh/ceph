@@ -64,7 +64,12 @@ added when the notification is committed to persistent storage.
 .. note:: If the notification fails with an error, cannot be delivered, or
    times out, it is retried until it is successfully acknowledged.
    You can control its retry with time_to_live/max_retries to have a time/retry limit and
-   control the retry frequency with retry_sleep_duration
+   control the retry frequency with retry_sleep_duration.
+   Old notification don't have a timestamp or retry number, so these will be migrated and
+   assigned current timestamp and retry number 0 (although have been pushing notification for quite some).
+
+.. note:: There is an issue with tenanted persistent queues
+   and migration might fail until the issue is fixed
 
 .. tip:: To minimize the latency added by asynchronous notification, we 
    recommended placing the "log" pool on fast media.
