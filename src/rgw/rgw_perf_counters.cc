@@ -208,6 +208,8 @@ void rgw_perf_stop(CephContext *cct)
   ceph_assert(perfcounter);
   cct->get_perfcounters_collection()->remove(perfcounter);
   delete perfcounter;
+  ceph_assert(global_op_counters);
+  cct->get_perfcounters_collection()->remove(global_op_counters);
   delete global_op_counters;
   delete user_counters_cache;
   delete bucket_counters_cache;
