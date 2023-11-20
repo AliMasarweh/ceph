@@ -690,6 +690,8 @@ public:
     }
     librados::ObjectWriteOperation op;
     op.create(true);
+    uint32_t single_entry_size = sizeof(event_entry_t);
+    ldpp_dout(this, 20) << "Ali INFO: entry size: " << single_entry_size << "=======\n\n" << dendl;
     cls_2pc_queue_init(op, topic_name, max_queue_size);
     auto& rados_ioctx = rados_store.getRados()->get_notif_pool_ctx();
     auto ret = rgw_rados_operate(this, rados_ioctx, topic_name, &op, y);

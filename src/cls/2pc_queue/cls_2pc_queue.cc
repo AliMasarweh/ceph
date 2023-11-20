@@ -637,6 +637,8 @@ static int cls_2pc_queue_remove_entries(cls_method_context_t hctx, bufferlist *i
     CLS_LOG(1, "ERROR: cls_2pc_queue_remove_entries: failed to decode header of queue: %s", err.what());
     return -EINVAL;
   }
+  CLS_LOG(20, "Ali INFO: entries_to_remove: %u, size: %lu, entry_size: %u",
+          rem_2pc_op.entries_to_remove, rem_op.removed_size, urgent_data.entry_size);
   urgent_data.committed_entries -= rem_2pc_op.entries_to_remove;
   // write back head
   head.bl_urgent_data.clear();

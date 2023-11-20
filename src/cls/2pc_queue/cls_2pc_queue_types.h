@@ -46,6 +46,7 @@ struct cls_2pc_urgent_data
   cls_2pc_reservations reservations; // reservation list (keyed by id)
   bool has_xattrs{false};
   uint32_t committed_entries{0}; // how many entries have been committed so far
+  uint32_t entry_size{0}; // single entry size
 
   void encode(ceph::buffer::list& bl) const {
     ENCODE_START(2, 1, bl);
@@ -54,6 +55,7 @@ struct cls_2pc_urgent_data
     encode(reservations, bl);
     encode(has_xattrs, bl);
     encode(committed_entries, bl);
+    encode(entry_size, bl);
     ENCODE_FINISH(bl);
   }
 
@@ -65,6 +67,7 @@ struct cls_2pc_urgent_data
     decode(has_xattrs, bl);
     if (struct_v >= 2) {
       decode(committed_entries, bl);
+      decode(entry_size, bl);
     }
     DECODE_FINISH(bl);
   }

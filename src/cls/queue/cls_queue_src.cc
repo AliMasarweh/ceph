@@ -481,6 +481,7 @@ int queue_remove_entries(cls_method_context_t hctx, const cls_queue_remove_op& o
   //Zero out the entries that have been removed, to reclaim storage space
   if (end_marker.offset > head.front.offset && end_marker.gen == head.front.gen) {
     uint64_t len = end_marker.offset - head.front.offset;
+    op.removed_size = len;
     if (len > 0) {
       auto ret = cls_cxx_write_zero(hctx, head.front.offset, len);
       if (ret < 0) {
@@ -491,6 +492,7 @@ int queue_remove_entries(cls_method_context_t hctx, const cls_queue_remove_op& o
     }
   } else if ((head.front.offset >= end_marker.offset) && (end_marker.gen == head.front.gen + 1)) { //start offset > end offset
     uint64_t len = head.queue_size - head.front.offset;
+    op.removed_size = len;
     if (len > 0) {
       auto ret = cls_cxx_write_zero(hctx, head.front.offset, len);
       if (ret < 0) {
@@ -500,6 +502,7 @@ int queue_remove_entries(cls_method_context_t hctx, const cls_queue_remove_op& o
       }
     }
     len = end_marker.offset - head.max_head_size;
+    op.removed_size += len;
     if (len > 0) {
       auto ret = cls_cxx_write_zero(hctx, head.max_head_size, len);
       if (ret < 0) {

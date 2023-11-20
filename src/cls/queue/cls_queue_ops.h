@@ -105,18 +105,23 @@ WRITE_CLASS_ENCODER(cls_queue_list_ret)
 
 struct cls_queue_remove_op {
   std::string end_marker;
+  mutable uint64_t removed_size;
 
   cls_queue_remove_op() {}
 
   void encode(ceph::buffer::list& bl) const {
-    ENCODE_START(1, 1, bl);
+    ENCODE_START(2, 1, bl);
     encode(end_marker, bl);
+    encode(removed_size, bl);
     ENCODE_FINISH(bl);
   }
 
   void decode(ceph::buffer::list::const_iterator& bl) {
-    DECODE_START(1, bl);
+    DECODE_START(2, bl);
     decode(end_marker, bl);
+    if (struct_v > 1) {
+      decode(removed_size, bl);
+    }
     DECODE_FINISH(bl);
   }
 };
