@@ -34,18 +34,23 @@ WRITE_CLASS_ENCODER(cls_queue_init_op)
 
 struct cls_queue_enqueue_op {
   std::vector<ceph::buffer::list> bl_data_vec;
+  uint32_t entry_size;
 
   cls_queue_enqueue_op() {}
 
   void encode(ceph::buffer::list& bl) const {
-    ENCODE_START(1, 1, bl);
+    ENCODE_START(2, 1, bl);
     encode(bl_data_vec, bl);
+    encode(entry_size, bl);
     ENCODE_FINISH(bl);
   }
 
   void decode(ceph::buffer::list::const_iterator& bl) {
-    DECODE_START(1, bl);
+    DECODE_START(2, bl);
     decode(bl_data_vec, bl);
+    if (struct_v > 1) {
+      decode(entry_size, bl);
+    }
     DECODE_FINISH(bl);
   } 
 };

@@ -43,6 +43,12 @@ static int cls_2pc_queue_init(cls_method_context_t hctx, bufferlist *in, bufferl
   return queue_init(hctx, init_op);
 }
 
+static uint64_t cls_2pc_queue_remaining_size(cls_queue_head& head) {
+  return (head.tail.offset >= head.front.offset) ?
+         (head.queue_size - head.tail.offset) + (head.front.offset - head.max_head_size) :
+         head.front.offset - head.tail.offset;
+}
+
 static int cls_2pc_queue_get_capacity(cls_method_context_t hctx, bufferlist *in, bufferlist *out)
 {
   cls_queue_get_capacity_ret op_ret;
@@ -299,6 +305,14 @@ static int cls_2pc_queue_commit(cls_method_context_t hctx, bufferlist *in, buffe
 
   urgent_data.reserved_size -= res.size;
   urgent_data.committed_entries += res.entries;
+
+  const auto remaining_size = (head.tail.offset >= head.front.offset) ?
+                              (head.queue_size - head.tail.offset) + (head.front.offset - head.max_head_size) :
+                              head.front.offset - head.tail.offset;
+  const auto queue_size = head.queue_size - head.max_head_size - remaining_size;
+
+  urgent_data.entry_size = queue_size / res.entries;
+  CLS_LOG(20, "INFO Ali cls_2pc_queue_commit, entry size: %u, op entry size: %u", urgent_data.entry_size, enqueue_op.entry_size);
 
   if (xattr_reservations.empty()) {
     // remove the reservation from urgent data

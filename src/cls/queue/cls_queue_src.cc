@@ -193,6 +193,7 @@ int queue_enqueue(cls_method_context_t hctx, cls_queue_enqueue_op& op, cls_queue
     uint64_t data_size = bl_data.length();
     encode(data_size, bl);
     bl.claim_append(bl_data);
+    op.entry_size= bl.length();
   
     CLS_LOG(10, "INFO: queue_enqueue(): Total size to be written is %u and data size is %lu", bl.length(), data_size);
 
