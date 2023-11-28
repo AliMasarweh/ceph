@@ -6631,7 +6631,6 @@ void RGWCompleteMultipart::pre_exec()
 
 void RGWCompleteMultipart::execute(optional_yield y)
 {
-  RGWMultiCompleteUpload *parts;
   RGWMultiXMLParser parser;
   std::unique_ptr<rgw::sal::MultipartUpload> upload;
   off_t ofs = 0;
@@ -6817,6 +6816,36 @@ void RGWCompleteMultipart::complete()
   }
 
   etag = s->object->get_attrs()[RGW_ATTR_ETAG].to_str();
+  if (etag.empty()) {
+    bufferlist etag_bl;
+    string oetag = etag;
+    MD5 hash;
+    // Allow use of MD5 digest in FIPS mode for non-cryptographic purposes
+    hash.SetFlags(EVP_MD_CTX_FLAG_NON_FIPS_ALLOW);
+    for (const auto& [index, part] : parts->parts) {
+      std::string partetag = rgw_string_unquote(part);
+      char petag[CEPH_CRYPTO_MD5_DIGESTSIZE];
+      hex_to_buf(partetag.c_str(), petag, CEPH_CRYPTO_MD5_DIGESTSIZE);
+      hash.Update((const unsigned char *)petag, sizeof(petag));
+      ldpp_dout(this, 20) << __func__ << "() re-calculating multipart etag: part: "
+                          << index << ", etag: " << partetag << dendl;
+    }
+
+    unsigned char final_etag[CEPH_CRYPTO_MD5_DIGESTSIZE];
+    char final_etag_str[CEPH_CRYPTO_MD5_DIGESTSIZE * 2 + 16];
+    hash.Final(final_etag);
+    buf_to_hex(final_etag, CEPH_CRYPTO_MD5_DIGESTSIZE, final_etag_str);
+    snprintf(&final_etag_str[CEPH_CRYPTO_MD5_DIGESTSIZE * 2], sizeof(final_etag_str) - CEPH_CRYPTO_MD5_DIGESTSIZE * 2,
+             "-%lld", (long long)parts->parts.size());
+    if (oetag.compare(final_etag_str) != 0) {
+      ldpp_dout(this, 1) << __func__ << "() NOTICE: etag mismatch: object etag:"
+                         << oetag << ", re-calculated etag:" << final_etag_str << dendl;
+      etag = final_etag_str;
+      etag_bl.append(etag);
+
+      s->object->get_attrs()[RGW_ATTR_ETAG] = etag_bl;
+    }
+  }
 
   send_response();
 }

@@ -1863,6 +1863,7 @@ protected:
   bufferlist data;
   std::unique_ptr<rgw::sal::MPSerializer> serializer;
   jspan_ptr multipart_trace;
+  RGWMultiCompleteUpload *parts;
 
 public:
   RGWCompleteMultipart() {}
