@@ -6749,7 +6749,7 @@ void RGWCompleteMultipart::complete()
   }
 
   if (op_ret >= 0 && target_obj.get() != nullptr) {
-    s->object->get_attrs()[RGW_ATTR_ETAG] = target_obj->get_attrs()[RGW_ATTR_ETAG];
+    s->object->set_attrs(target_obj->get_attrs());
     etag = s->object->get_attrs()[RGW_ATTR_ETAG].to_str();
     // send request to notification manager
     if (res.get() != nullptr) {
