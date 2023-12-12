@@ -558,7 +558,7 @@ public:
 
     std::string user;
     std::string password;
-    if (!parse_url_authority(url, broker, user, password)) {
+    if (!parse_url_authority(url, broker, user, password, cct)) {
       // TODO: increment counter
       ldout(cct, 1) << "Kafka connect: URL parsing failed" << dendl;
       return false;
