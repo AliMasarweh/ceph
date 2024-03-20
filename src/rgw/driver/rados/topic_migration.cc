@@ -100,14 +100,24 @@ int migrate_notification(const DoutPrefixProvider* dpp, optional_yield y,
       return r;
     }
 
-    if (bucket->get_marker() != marker || bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
+    if (bucket->get_marker() != marker) {
       break;
     }
 
     bufferlist bl;
     bucket_topics.encode(bl);
-    bucket->get_attrs()[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
-    r = bucket->put_info(dpp, false, real_time(), y);
+    // same attrs ready to merge
+    rgw::sal::Attrs attrs = bucket->get_attrs();
+
+    if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
+      // change only bucket notification attr
+      attrs[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
+      r = bucket->merge_and_store_attrs(dpp, attrs, y);
+    } else {
+      bucket->get_attrs()[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
+      r = bucket->put_info(dpp, false, real_time(), y);
+    }
+
     if (r != -ECANCELED && r < 0) {
       ldpp_dout(dpp, 1) << "ERROR: failed writing bucket instance info: " << cpp_strerror(-r) << dendl;
       std::string s = "ERROR: failed writing bucket instance info: " + cpp_strerror(-r);
@@ -162,6 +172,9 @@ int migrate_topics(const DoutPrefixProvider* dpp, optional_yield y,
 
   constexpr bool exclusive = true; // don't overwrite any existing v2 metadata
   for (const auto& [name, topic] : topics.topics) {
+    if (topic.name != topic.dest.arn_topic) {
+      continue;
+    }
     // write the v2 topic
     RGWObjVersionTracker objv;
     objv.generate_new_write_ver(dpp->get_cct());
