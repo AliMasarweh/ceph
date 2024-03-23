@@ -105,16 +105,30 @@ int migrate_notification(const DoutPrefixProvider* dpp, optional_yield y,
     }
 
     bufferlist bl;
-    bucket_topics.encode(bl);
-    // same attrs ready to merge
-    rgw::sal::Attrs attrs = bucket->get_attrs();
+    rgw::sal::Attrs& attrs = bucket->get_attrs();
 
     if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
+      // get the v2 bucket notifications
+      rgw_pubsub_bucket_topics current_v2_bucket_topics;
+      try {
+        auto biter = attrs.find(RGW_ATTR_BUCKET_NOTIFICATION)->second.cbegin();
+        current_v2_bucket_topics.decode(biter);
+      } catch (buffer::error& err) {
+        ldpp_dout(dpp, 1) << "ERROR: failed to decode bucket topics for bucket: "
+                          << bucket->get_name() << dendl;
+        return -EIO;
+      }
+      // put the v1 notifications
+      for (const auto& [topic_name, topic] : bucket_topics.topics) {
+        current_v2_bucket_topics.topics.insert(std::make_pair(topic_name, topic));
+      }
       // change only bucket notification attr
+      current_v2_bucket_topics.encode(bl);
       attrs[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
       r = bucket->merge_and_store_attrs(dpp, attrs, y);
     } else {
-      bucket->get_attrs()[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
+      bucket_topics.encode(bl);
+      attrs[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
       r = bucket->put_info(dpp, false, real_time(), y);
     }
 
