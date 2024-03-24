@@ -4691,7 +4691,7 @@ def test_ps_s3_notification_push_kafka_security_sasl_scram():
     kafka_security('SASL_PLAINTEXT', mechanism='SCRAM-SHA-256')
 
 
-@attr('data_path_v2_test')
+@attr('data_path_v2_test_2')
 def test_persistent_ps_s3_data_path_v2_migration():
     """ test data path v2 persistent migration """
     conn = connection()
@@ -4829,7 +4829,7 @@ def test_persistent_ps_s3_data_path_v2_migration():
     http_server.close()
 
 
-@attr('data_path_v2_test')
+@attr('data_path_v2_test_3')
 def test_ps_s3_data_path_v2_migration():
     """ test data path v2 migration """
     conn = connection()

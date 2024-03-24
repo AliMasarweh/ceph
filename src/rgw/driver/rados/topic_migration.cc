@@ -172,14 +172,14 @@ int migrate_notification(const DoutPrefixProvider* dpp, optional_yield y,
       break;
     }
 
-    if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
-      r = merge_v1_and_v2_notifications(dpp, y, bucket_topics, driver, tenant, bucket_name, bucket.get());
-    } else {
+//    if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
+//      r = merge_v1_and_v2_notifications(dpp, y, bucket_topics, driver, tenant, bucket_name, bucket.get());
+//    } else {
       bufferlist bl;
       bucket_topics.encode(bl);
       bucket->get_attrs()[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
       r = bucket->put_info(dpp, false, real_time(), y);
-    }
+//    }
 
     if (r != -ECANCELED && r < 0) {
       ldpp_dout(dpp, 1) << "ERROR: failed writing bucket instance info: " << cpp_strerror(-r) << dendl;
@@ -294,7 +294,7 @@ int migrate(const DoutPrefixProvider* dpp,
   bool truncated = false;
 
   std::vector<std::string> oids;
-  std::vector<std::string> topics_oid;
+//  std::vector<std::string> topics_oid;
   do {
     oids.clear();
     r = rgw_list_pool(dpp, ioctx, max, filter, marker, &oids, &truncated);
@@ -318,7 +318,12 @@ int migrate(const DoutPrefixProvider* dpp,
                           << ((r == 0)? "successful": cpp_strerror(r)) << dendl;
       } else {
         // topics will be migrated after we complete migrating the notifications
-        topics_oid.push_back(oid);
+//        topics_oid.push_back(oid);
+        const auto obj = rgw_raw_obj{pool, oid};
+        ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << dendl;
+        r = migrate_topics(dpp, y, driver, obj);
+        ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << " completed with: "
+                          << ((r == 0) ? "successful" : cpp_strerror(r)) << dendl;
       }
     }
     if (!oids.empty()) {
@@ -327,13 +332,13 @@ int migrate(const DoutPrefixProvider* dpp,
   } while (truncated);
 
 
-  for (const std::string& oid : topics_oid) {
-    const auto obj = rgw_raw_obj{pool, oid};
-    ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << dendl;
-    r = migrate_topics(dpp, y, driver, obj);
-    ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << " completed with: "
-                      << ((r == 0) ? "successful" : cpp_strerror(r)) << dendl;
-  }
+//  for (const std::string& oid : topics_oid) {
+//    const auto obj = rgw_raw_obj{pool, oid};
+//    ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << dendl;
+//    r = migrate_topics(dpp, y, driver, obj);
+//    ldpp_dout(dpp, 4) << "migrating v1 topics " << oid << " completed with: "
+//                      << ((r == 0) ? "successful" : cpp_strerror(r)) << dendl;
+//  }
 
   ldpp_dout(dpp, 1) << "finished v1 topic migration" << dendl;
   return 0;
