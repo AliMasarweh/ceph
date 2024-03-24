@@ -235,9 +235,9 @@ int migrate_topics(const DoutPrefixProvider* dpp, optional_yield y,
 
   constexpr bool exclusive = true; // don't overwrite any existing v2 metadata
   for (const auto& [name, topic] : topics.topics) {
-    if (topic.name != topic.dest.arn_topic) {
-      continue;
-    }
+//    if (topic.name != topic.dest.arn_topic) {
+//      continue;
+//    }
     // write the v2 topic
     RGWObjVersionTracker objv;
     objv.generate_new_write_ver(dpp->get_cct());
