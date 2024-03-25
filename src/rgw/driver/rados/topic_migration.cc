@@ -172,14 +172,14 @@ int migrate_notification(const DoutPrefixProvider* dpp, optional_yield y,
       break;
     }
 
-//    if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
-//      r = merge_v1_and_v2_notifications(dpp, y, bucket_topics, driver, tenant, bucket_name, bucket.get());
-//    } else {
+    if(bucket->get_attrs().contains(RGW_ATTR_BUCKET_NOTIFICATION)) {
+      r = merge_v1_and_v2_notifications(dpp, y, bucket_topics, driver, tenant, bucket_name, bucket.get());
+    } else {
       bufferlist bl;
       bucket_topics.encode(bl);
       bucket->get_attrs()[RGW_ATTR_BUCKET_NOTIFICATION] = std::move(bl);
       r = bucket->put_info(dpp, false, real_time(), y);
-//    }
+    }
 
     if (r != -ECANCELED && r < 0) {
       ldpp_dout(dpp, 1) << "ERROR: failed writing bucket instance info: " << cpp_strerror(-r) << dendl;
