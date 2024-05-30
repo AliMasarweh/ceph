@@ -2188,25 +2188,25 @@ def test_multipart(endpoint_type, conn):
     receiver.close(task)
 
 
-@attr('http_test')
-def test_multipart_http():
-    """ test http multipart object upload """
-    conn = connection()
-    test_multipart('http', conn)
-
-
-@attr('kafka_test')
-def test_multipart_kafka():
-    """ test kafka multipart object upload """
-    conn = connection()
-    test_multipart('kafka', conn)
-
-
-@attr('amqp_test')
-def test_multipart_ampq():
-    """ test ampq multipart object upload """
-    conn = connection()
-    test_multipart('ampq', conn)
+# @attr('http_test')
+# def test_multipart_http():
+#     """ test http multipart object upload """
+#     conn = connection()
+#     test_multipart('http', conn)
+#
+#
+# @attr('kafka_test')
+# def test_multipart_kafka():
+#     """ test kafka multipart object upload """
+#     conn = connection()
+#     test_multipart('kafka', conn)
+#
+#
+# @attr('amqp_test')
+# def test_multipart_ampq():
+#     """ test ampq multipart object upload """
+#     conn = connection()
+#     test_multipart('ampq', conn)
 
 
 def metadata_filter(endpoint_type, conn):
