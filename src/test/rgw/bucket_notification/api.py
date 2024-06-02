@@ -235,6 +235,7 @@ def bash(cmd, **kwargs):
     kwargs['stdout'] = subprocess.PIPE
     process = subprocess.Popen(cmd, **kwargs)
     s = process.communicate()[0].decode('utf-8')
+    print('ali bedbug bash', (s, process.returncode))
     return (s, process.returncode)
 
 def admin(args, cluster='noname', **kwargs):

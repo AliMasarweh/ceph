@@ -585,10 +585,13 @@ def get_topic(topic_name, tenant=''):
 def remove_topic(topic_name, tenant='', allow_failure=False):
     if tenant == '':
         result = admin(['topic', 'rm', '--topic', topic_name], get_config_cluster())
+        print('ali debug111', result)
     else:
         result = admin(['topic', 'rm', '--topic', topic_name, '--tenant', tenant], get_config_cluster())
+        print('ali debug222', result)
     if not allow_failure:
         assert_equal(result[1], 0)
+    print('ali debug', result)
     return result[1]
 
 
@@ -728,7 +731,7 @@ def test_ps_s3_topic_on_master():
     assert_equal(result['ListTopicsResponse']['ListTopicsResult']['Topics'], None)
 
 
-@attr('basic_test')
+@attr('basic_test_1')
 def test_ps_s3_topic_admin_on_master():
     """ test s3 topics set/get/delete on master """
     
