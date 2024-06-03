@@ -572,11 +572,13 @@ def get_stats_persistent_topic(topic_name, assert_entries_number=None):
     return parsed_result
 
 
-def get_topic(topic_name, tenant=''):
+def get_topic(topic_name, tenant='', allow_failure=False):
     if tenant == '':
         result = admin(['topic', 'get', '--topic', topic_name], get_config_cluster())
     else:
         result = admin(['topic', 'get', '--topic', topic_name, '--tenant', tenant], get_config_cluster())
+    if allow_failure:
+        return result
     assert_equal(result[1], 0)
     parsed_result = json.loads(result[0])
     return parsed_result
@@ -776,7 +778,7 @@ def test_ps_s3_topic_admin_on_master():
     remove_topic(topic_name + '_3', tenant)
 
     # try to get a deleted topic
-    result = remove_topic(topic_name + '_3', tenant, allow_failure=True)
+    _, result = get_topic(topic_name + '_3', tenant, allow_failure=True)
     print('"topic not found" error is expected')
     assert_equal(result, 2)
 
