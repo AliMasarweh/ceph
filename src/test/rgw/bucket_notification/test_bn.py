@@ -2950,6 +2950,11 @@ def wait_for_queue_to_drain(topic_name, tenant=None, account=None, http_port=Non
         time_diff = time.time() - start_time
         log.info('queue %s has %d entries after %ds', topic_name, entries, time_diff)
         if retries > 30:
+            if http_port:
+                url = 'http://{}:{}'.format(get_ip(), http_port)
+                response = requests.post(url, {})
+                if response.status_code != 200:
+                    return
             log.warning('queue %s still has %d entries after %ds', topic_name, entries, time_diff)
             assert_equal(entries, 0)
         time.sleep(5)
