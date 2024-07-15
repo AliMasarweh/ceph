@@ -260,7 +260,7 @@ class HTTPServerWithEvents(ThreadingHTTPServer):
         self.lock.release()
         return events
 
-    def close(self, task=None):
+    def __del__(self):
         log.info('http server on %s starting shutdown', str(self.addr))
         t = threading.Thread(target=self.shutdown)
         t.start()
@@ -275,6 +275,9 @@ class HTTPServerWithEvents(ThreadingHTTPServer):
             self.server_close()
         else:
             log.info('http server on %s shutdown ended', str(self.addr))
+
+    def close(self, task=None):
+        self.get_and_reset_events()
 
 # AMQP endpoint functions
 
@@ -658,6 +661,13 @@ def connect_random_user(tenant=''):
                         is_secure=False, port=get_config_port(), host=get_config_host(),
                         calling_format='boto.s3.connection.OrdinaryCallingFormat')
     return conn
+
+
+host = get_ip_http()
+global_http_port = random.randint(10000, 20000)
+# start an http server in a separate thread
+global_http_receiver = HTTPServerWithEvents((host, global_http_port), cloudevents=False)
+global_http_receiver_cloudevents = HTTPServerWithEvents((host, global_http_port+1), cloudevents=True)
 
 ##############
 # bucket notifications tests
@@ -1298,9 +1308,12 @@ def notification_push(endpoint_type, conn, account=None, cloudevents=False):
     if endpoint_type == 'http':
         # create random port for the http server
         host = get_ip_http()
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port), cloudevents=cloudevents)
+        receiver = global_http_receiver
+        if cloudevents:
+            receiver = global_http_receiver_cloudevents
+            port = global_http_port + 1
         endpoint_address = 'http://'+host+':'+str(port)
         if cloudevents:
             endpoint_args = 'push-endpoint='+endpoint_address+'&cloudevents=true'
@@ -1571,10 +1584,10 @@ def test_ps_s3_notification_multi_delete_on_master():
 
     # create random port for the http server
     host = get_ip()
-    port = random.randint(10000, 20000)
+    port = global_http_port
     # start an http server in a separate thread
     number_of_objects = 10
-    http_server = HTTPServerWithEvents((host, port))
+    http_server = global_http_receiver
 
     # create bucket
     bucket_name = gen_bucket_name()
@@ -1654,10 +1667,10 @@ def test_ps_s3_opaque_data_on_master():
 
     # create random port for the http server
     host = get_ip()
-    port = random.randint(10000, 20000)
+    port = global_http_port
     # start an http server in a separate thread
     number_of_objects = 10
-    http_server = HTTPServerWithEvents((host, port))
+    http_server = global_http_receiver
 
     # create bucket
     bucket_name = gen_bucket_name()
@@ -1729,9 +1742,9 @@ def lifecycle(endpoint_type, conn, number_of_objects, topic_events, create_threa
     port = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'
     elif endpoint_type == 'amqp':
@@ -2214,9 +2227,9 @@ def multipart_endpoint_agnostic(endpoint_type, conn):
     task = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((hostname, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address
     elif endpoint_type == 'amqp':
@@ -2308,9 +2321,9 @@ def metadata_filter(endpoint_type, conn):
     port = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'
     elif endpoint_type == 'amqp':
@@ -2824,10 +2837,10 @@ def test_ps_s3_persistent_cleanup():
 
     # create random port for the http server
     host = get_ip()
-    port = random.randint(10000, 20000)
+    port = global_http_port
     # start an http server in a separate thread
     number_of_objects = 200
-    http_server = HTTPServerWithEvents((host, port))
+    http_server = global_http_receiver
 
     gw = conn
 
@@ -2971,9 +2984,9 @@ def persistent_topic_stats(conn, endpoint_type):
     port = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'+ \
                         '&retry_sleep_duration=1'
@@ -3175,10 +3188,10 @@ def ps_s3_persistent_topic_configs(persistency_time, config_dict):
 
     # create random port for the http server
     host = get_ip()
-    port = random.randint(10000, 20000)
+    port = global_http_port
 
     # start an http server in a separate thread
-    http_server = HTTPServerWithEvents((host, port))
+    http_server = global_http_receiver
 
     # create bucket
     bucket_name = gen_bucket_name()
@@ -3298,9 +3311,9 @@ def test_ps_s3_persistent_notification_pushback():
 
     # create random port for the http server
     host = get_ip()
-    port = random.randint(10000, 20000)
+    port = global_http_port
     # start an http server in a separate thread
-    http_server = HTTPServerWithEvents((host, port), delay=0.5)
+    http_server = global_http_receiver
 
     # create bucket
     bucket_name = gen_bucket_name()
@@ -3715,9 +3728,9 @@ def persistent_topic_multiple_endpoints(conn, endpoint_type):
     port = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'+ \
                         '&retry_sleep_duration=1'
@@ -3829,9 +3842,9 @@ def persistent_notification(endpoint_type, conn, account=None):
     if endpoint_type == 'http':
         # create random port for the http server
         host = get_ip_http()
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'
     elif endpoint_type == 'amqp':
@@ -4661,9 +4674,9 @@ def test_persistent_ps_s3_reload():
 
     # create random port for the http server
     host = get_ip()
-    http_port = random.randint(10000, 20000)
+    http_port = global_http_port
     print('start http server')
-    http_server = HTTPServerWithEvents((host, http_port), delay=2)
+    http_server = global_http_receiver
 
     # create bucket
     bucket_name = gen_bucket_name()
@@ -4766,9 +4779,9 @@ def persistent_data_path_v2_migration(conn, endpoint_type):
     port = None
     if endpoint_type == 'http':
         # create random port for the http server
-        port = random.randint(10000, 20000)
+        port = global_http_port
         # start an http server in a separate thread
-        receiver = HTTPServerWithEvents((host, port))
+        receiver = global_http_receiver
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'+ \
                         '&retry_sleep_duration=1'
@@ -4904,10 +4917,10 @@ def test_ps_s3_data_path_v2_migration():
 
     # create random port for the http server
     host = get_ip()
-    http_port = random.randint(10000, 20000)
+    http_port = global_http_port
 
     # start an http server in a separate thread
-    http_server = HTTPServerWithEvents((host, http_port))
+    http_server = global_http_receiver
 
     # disable v2 notification
     zonegroup_modify_feature(enable=False, feature_name=zonegroup_feature_notification_v2)
