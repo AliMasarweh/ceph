@@ -1133,12 +1133,13 @@ void *RGWHTTPManager::reqs_thread_entry()
 	long http_status;
         int status;
         if (!req_data->user_ret) {
-          curl_easy_getinfo(e, CURLINFO_RESPONSE_CODE, (void **)&http_status);
+          auto curl_error = curl_easy_perform(e);
+          curl_easy_getinfo(e, CURLINFO_RESPONSE_CODE, &http_status);
 
-          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", curl_error=" << curl_error << ", maybe network unstable" << dendl;
           status = rgw_http_error_to_errno(http_status);
-          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
-          if (result != CURLE_OK/* && status == 0*/) {
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", curl_error=" << curl_error << ", maybe network unstable" << dendl;
+          if (curl_error != CURLE_OK/* && status == 0*/) {
             // dout(0) << "ERROR: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
             status = -EAGAIN;
           }
