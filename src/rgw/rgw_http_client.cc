@@ -1135,15 +1135,19 @@ void *RGWHTTPManager::reqs_thread_entry()
         if (!req_data->user_ret) {
           curl_easy_getinfo(e, CURLINFO_RESPONSE_CODE, (void **)&http_status);
 
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
           status = rgw_http_error_to_errno(http_status);
-          if (result != CURLE_OK && status == 0) {
-            dout(0) << "ERROR: curl error: " << curl_easy_strerror((CURLcode)result) << ", maybe network unstable" << dendl;
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
+          if (result != CURLE_OK/* && status == 0*/) {
+            // dout(0) << "ERROR: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
             status = -EAGAIN;
           }
         } else {
           status = *req_data->user_ret;
           rgw_err err;
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
           set_req_state_err(err, status, 0);
+          dout(0) << "Ali debug: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", maybe network unstable" << dendl;
           http_status = err.http_ret;
         }
         int id = req_data->id;
@@ -1157,7 +1161,7 @@ void *RGWHTTPManager::reqs_thread_entry()
           // coverity[unterminated_case:SUPPRESS]
           default:
             dout(20) << "ERROR: msg->data.result=" << result << " req_data->id=" << id << " http_status=" << http_status << dendl;
-            dout(20) << "ERROR: curl error: " << curl_easy_strerror((CURLcode)result) << " req_data->error_buf=" << req_data->error_buf << dendl;
+            dout(20) << "ERROR: curl error: status:" << status << "=(" << curl_easy_strerror((CURLcode)result) << "), http_status=" << http_status << ", req_data->error_buf=" << req_data->error_buf << dendl;
 	    break;
         }
       }
