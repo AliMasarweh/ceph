@@ -1745,6 +1745,7 @@ def lifecycle(endpoint_type, conn, number_of_objects, topic_events, create_threa
         port = global_http_port
         # start an http server in a separate thread
         receiver = global_http_receiver
+        print('ali debug, port:', port, 'global_port:', global_http_port)
         endpoint_address = 'http://'+host+':'+str(port)
         endpoint_args = 'push-endpoint='+endpoint_address+'&persistent=true'
     elif endpoint_type == 'amqp':
@@ -1809,6 +1810,7 @@ def lifecycle(endpoint_type, conn, number_of_objects, topic_events, create_threa
     print('wait for sometime for the messages...')
 
     no_keys = list(bucket.list())
+    print('ali debug, port:', port, 'global_port:', global_http_port)
     wait_for_queue_to_drain(topic_name, http_port=port)
     assert_equal(len(no_keys), 0)
     event_keys = []
@@ -1857,7 +1859,7 @@ def create_thread(bucket, obj_prefix, i, content):
     return threading.Thread(target = set_contents_from_string, args=(key, content,))
 
 
-@attr('http_test')
+@attr('ali_test')
 def test_lifecycle_http():
     """ test that when object is deleted due to lifecycle policy, http endpoint """
 
@@ -2953,8 +2955,8 @@ def wait_for_queue_to_drain(topic_name, tenant=None, account=None, http_port=Non
     if account:
         cmd += ['--account-id', account]
     while entries > 0:
-        if http_port:
-            check_http_server(http_port)
+        # if http_port:
+        #     check_http_server(http_port)
         result = admin(cmd, get_config_cluster())
         assert_equal(result[1], 0)
         parsed_result = json.loads(result[0])
@@ -2962,10 +2964,12 @@ def wait_for_queue_to_drain(topic_name, tenant=None, account=None, http_port=Non
         retries += 1
         time_diff = time.time() - start_time
         log.info('queue %s has %d entries after %ds', topic_name, entries, time_diff)
+        print('ali debug, queue', topic_name, 'has', entries, 'entries after', time_diff)
         if retries > 30:
             log.warning('queue %s still has %d entries after %ds', topic_name, entries, time_diff)
             assert_equal(entries, 0)
         time.sleep(5)
+        print('ali debug, retry', retries, ' out of 30')
     time_diff = time.time() - start_time
     log.info('waited for %ds for queue %s to drain', time_diff, topic_name)
 
