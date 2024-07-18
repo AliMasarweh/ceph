@@ -1857,7 +1857,7 @@ def create_thread(bucket, obj_prefix, i, content):
     return threading.Thread(target = set_contents_from_string, args=(key, content,))
 
 
-@attr('http_test')
+@attr('ali_test')
 def test_lifecycle_http():
     """ test that when object is deleted due to lifecycle policy, http endpoint """
 

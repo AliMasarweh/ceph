@@ -114,7 +114,11 @@ class HTTPPostHandler(BaseHTTPRequestHandler):
             event = from_http(self.headers, body)
             record = json.loads(body)['Records'][0]
         log.info('HTTP Server received event: %s', str(body))
-        self.server.append(json.loads(body))
+        json_body = ''
+        if body != b'':
+            json_body = json.loads(body)
+            self.server.append(json.loads(body))
+        print('ali debug, json body:', json_body)
         if self.headers.get('Expect') == '100-continue':
             self.send_response(100)
         else:
