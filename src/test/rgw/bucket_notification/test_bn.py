@@ -1791,12 +1791,15 @@ def lifecycle(endpoint_type, conn, number_of_objects, topic_events, create_threa
 
     # start lifecycle processing
     admin(['lc', 'process'], get_config_cluster())
-    print('wait for 20s for the lifecycle...')
-    time.sleep(20)
     print('wait for sometime for the messages...')
-
     no_keys = list(bucket.list())
+    while len(no_keys) > 0:
+        print('debug, len,', len(no_keys), ', list,', no_keys, ', wait 5 sec for lifecycle to kick in')
+        time.sleep(5)
+        no_keys = list(bucket.list())
+
     wait_for_queue_to_drain(topic_name, http_port=port)
+    no_keys = list(bucket.list())
     assert_equal(len(no_keys), 0)
     event_keys = []
     events = receiver.get_and_reset_events()
