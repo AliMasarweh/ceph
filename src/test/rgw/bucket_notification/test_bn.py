@@ -2955,8 +2955,8 @@ def wait_for_queue_to_drain(topic_name, tenant=None, account=None, http_port=Non
     if account:
         cmd += ['--account-id', account]
     while entries > 0:
-        # if http_port:
-        #     check_http_server(http_port)
+        if http_port:
+            check_http_server(http_port)
         result = admin(cmd, get_config_cluster())
         assert_equal(result[1], 0)
         parsed_result = json.loads(result[0])
