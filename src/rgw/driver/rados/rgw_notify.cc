@@ -314,6 +314,7 @@ private:
         }
         // TODO pass entry pointer instead of by-value
         spawn::spawn(yield, [this, &queue_name, entry_idx, total_entries, &end_marker, &remove_entries, &has_error, &waiter, entry](yield_context yield) {
+
             const auto token = waiter.make_token();
             if (process_entry(entry, yield)) {
               ldpp_dout(this, 20) << "INFO: processing of entry: " << 
@@ -338,13 +339,21 @@ private:
 
       // delete all published entries from queue
       if (remove_entries) {
+        uint64_t entries_to_remove = 0;
+        for (const auto& entry: entries) {
+          if (end_marker == entry.marker) {
+            break;
+          }
+          entries_to_remove++;
+        }
+
         librados::ObjectWriteOperation op;
         op.assert_exists();
         rados::cls::lock::assert_locked(&op, queue_name+"_lock", 
           ClsLockType::EXCLUSIVE,
           lock_cookie, 
           "" /*no tag*/);
-        cls_2pc_queue_remove_entries(op, end_marker); 
+        cls_2pc_queue_remove_entries(op, end_marker, entries_to_remove);
         // check ownership and deleted entries in one batch
         const auto ret = rgw_rados_operate(this, rados_ioctx, queue_name, &op, optional_yield(io_context, yield)); 
         if (ret == -ENOENT) {
@@ -977,6 +986,26 @@ int publish_abort(reservation_t& res) {
   return 0;
 }
 
+int get_persistent_queue_stats_by_topic_name(const DoutPrefixProvider *dpp, librados::IoCtx &rados_ioctx,
+                                             const std::string &topic_name, rgw_topic_stats &stats, optional_yield y)
+{
+  cls_2pc_reservations reservations;
+  auto ret = cls_2pc_queue_list_reservations(rados_ioctx, topic_name, reservations);
+  if (ret < 0) {
+    ldpp_dout(dpp, 1) << "ERROR: failed to read queue list reservation: " << ret << dendl;
+    return ret;
+  }
+  stats.queue_reservations = reservations.size();
+
+  ret = cls_2pc_queue_get_topic_stats(rados_ioctx, topic_name, stats.queue_entries, stats.queue_size);
+  if (ret < 0) {
+    ldpp_dout(dpp, 1) << "ERROR: failed to get the queue size or the number of entries: " << ret << dendl;
+    return ret;
+  }
+
+  return 0;
+}
+
 reservation_t::reservation_t(const DoutPrefixProvider* _dpp,
 			     rgw::sal::RadosStore* _store,
 			     const req_state* _s,
@@ -1018,6 +1047,14 @@ reservation_t::reservation_t(const DoutPrefixProvider* _dpp,
 
 reservation_t::~reservation_t() {
   publish_abort(*this);
+}
+
+void rgw_topic_stats::dump(Formatter *f) const {
+  f->open_object_section("Topic Stats");
+  f->dump_int("Reservations", queue_reservations);
+  f->dump_int("Size", queue_size);
+  f->dump_int("Entries", queue_entries);
+  f->close_section();
 }
 
 } // namespace rgw::notify
