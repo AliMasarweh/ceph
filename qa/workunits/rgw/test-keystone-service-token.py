@@ -20,7 +20,7 @@ import time
 
 
 # b4221c214dd64ee6a464g2153fae3813 is ID of deadbeef project
-SWIFT_URL = 'http://localhost:8000/swift/v1/AUTH_b4221c214dd64ee6a464g2153fae3813'
+SWIFT_URL = 'http://localhost:8000/swift/v1/AUTH_deadbeef'
 KEYSTONE_URL = 'http://localhost:5000'
 
 
