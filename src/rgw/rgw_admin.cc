@@ -11187,38 +11187,45 @@ next:
     }
 
     formatter->open_object_section("result");
-    formatter->open_array_section("topics");
+    rgw_pubsub_topics result;
+    auto is_v2_ready = rgw::all_zonegroups_support(*site, rgw::zone_features::notification_v2) &&
+                       driver->stat_topics_v1(tenant, null_yield, dpp()) == -ENOENT;
+    if (is_v2_ready) {
+      formatter->open_array_section("topics");
+    }
     do {
-      rgw_pubsub_topics result;
       int ret = ps.get_topics(dpp(), next_token, max_entries,
                               result, next_token, null_yield);
       if (ret < 0 && ret != -ENOENT) {
         cerr << "ERROR: could not get topics: " << cpp_strerror(-ret) << std::endl;
         return -ret;
       }
+      if (!is_v2_ready) {
+        break;
+      }
       for (const auto& [_, topic] : result.topics) {
         if (owner && *owner != topic.owner) {
           continue;
         }
         std::set<std::string> subscribed_buckets;
-        if (rgw::all_zonegroups_support(*site, rgw::zone_features::notification_v2) &&
-            driver->stat_topics_v1(tenant, null_yield, dpp()) == -ENOENT) {
-          ret = driver->get_bucket_topic_mapping(topic, subscribed_buckets,
-                                                 null_yield, dpp());
-          if (ret < 0) {
-            cerr << "failed to fetch bucket topic mapping info for topic: "
-                 << topic.name << ", ret=" << ret << std::endl;
-          }
-          show_topics_info_v2(topic, subscribed_buckets, formatter.get());
-        } else {
-          encode_json("result", result, formatter.get());
+        ret = driver->get_bucket_topic_mapping(topic, subscribed_buckets,
+                                               null_yield, dpp());
+        if (ret < 0) {
+          cerr << "failed to fetch bucket topic mapping info for topic: "
+               << topic.name << ", ret=" << ret << std::endl;
         }
+        show_topics_info_v2(topic, subscribed_buckets, formatter.get());
         if (max_entries_specified) {
           --max_entries;
         }
       }
+      result.topics.clear();
     } while (!next_token.empty() && max_entries > 0);
-    formatter->close_section(); // topics
+    if (is_v2_ready) {
+      formatter->close_section(); // topics
+    } else { // v1, list all topics
+      encode_json("result", result, formatter.get());
+    }
     if (max_entries_specified) {
       encode_json("truncated", !next_token.empty(), formatter.get());
       if (!next_token.empty()) {
