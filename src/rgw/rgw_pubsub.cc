@@ -582,9 +582,8 @@ int RGWPubSub::get_topics(const DoutPrefixProvider* dpp,
   }
 
   if (!use_notification_v2 || driver->stat_topics_v1(tenant, y, dpp) != -ENOENT) {
-    // in case of v1 or during migration we use v1 topics
-    // v1 returns all topics, ignoring marker/max_items
-    return read_topics_v1(dpp, result, nullptr, y);
+    // you must check if all zones are v2 ready and migration is done
+    return -EPERM;
   }
  
   // TODO: prefix filter on 'tenant:'
@@ -627,6 +626,24 @@ int RGWPubSub::get_topics(const DoutPrefixProvider* dpp,
     next_marker.clear();
   }
   return ret;
+}
+
+int RGWPubSub::get_topics_v1(const DoutPrefixProvider* dpp,
+                             rgw_pubsub_topics& result,
+                             optional_yield y) const
+{
+  if (rgw::account::validate_id(tenant)) {
+    // if our tenant is an account, return the account listing
+    constexpr int max_items = 1000;
+    std::string start_marker, next_marker;
+    return list_account_topics(dpp, start_marker, max_items,
+                               result, next_marker, y);
+  }
+
+  if (use_notification_v2 && driver->stat_topics_v1(tenant, y, dpp) == -ENOENT) {
+    return -EPERM;
+  }
+  return read_topics_v1(dpp, result, nullptr, y);
 }
 
 int RGWPubSub::list_account_topics(const DoutPrefixProvider* dpp,
