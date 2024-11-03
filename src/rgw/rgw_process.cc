@@ -449,7 +449,7 @@ done:
       rgw::bucketlogging::LoggingType::Standard,
       s->object.get(),
       s, 
-      op->name(), 
+      op->canonical_name(), 
       "", 
       (s->object ? s->object->get_size() : 0),
       op, 

@@ -91,7 +91,7 @@ minimum amount of data used for journaling bucket changes (this is a Ceph extens
   - bucket name (or dash if empty)
   - time in the following format: ``[day/month/year:hour:minute:second timezone]``
   - object key (or dash if empty)
-  - operation in the following format: ``REST.<HTTP method>.<RGW OP name>``
+  - operation in the following format: ``WEBSITE/REST.<HTTP method>.<resource>``
   - object size (or dash if empty)
   - version id (dash if empty or question mark if unknown)
   - eTag
@@ -100,8 +100,8 @@ For example:
 
 ::
 
-  testid fish [06/Aug/2024:09:40:09 +0000] myfile - REST.PUT.put_obj 4cfdfc1f58e762d3e116787cb92fac60
-  testid fish [06/Aug/2024:09:40:28 +0000] myfile REST.DELETE.delete_obj 4cfdfc1f58e762d3e116787cb92fac60
+  testid fish [06/Aug/2024:09:40:09 +0000] myfile - REST.PUT.OBJECT 4cfdfc1f58e762d3e116787cb92fac60
+  testid fish [06/Aug/2024:09:40:28 +0000] myfile REST.DELETE.OBJECT 4cfdfc1f58e762d3e116787cb92fac60
 
 
 Standard
@@ -114,7 +114,7 @@ based on `AWS Logging Record Format`_.
   - remote IP (not supported, always a dash)
   - user or account (or dash if empty)
   - request ID
-  - operation in the following format: ``REST.<HTTP method>.<RGW OP name>``
+  - operation in the following format: ``WEBSITE/REST.<HTTP method>.<resource>``
   - object key (or dash if empty)
   - request URI in the following format: ``"<HTTP method> <URI> <HTTP version>"``
   - HTTP status (or dash if zero). Note that in most cases log is written before the status is known
@@ -139,10 +139,10 @@ For example:
 
 ::
 
-  testid fish [06/Aug/2024:09:30:25 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.15085270386962380710 REST.PUT.put_obj myfile "PUT /fish/myfile HTTP/1.1" 200 - 512 512 - - - - - - - - - localhost - -
-  testid fish [06/Aug/2024:09:30:51 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.7046073853138417766 REST.GET.get_obj myfile "GET /fish/myfile HTTP/1.1" 200 - - 512 - - - - - - - - - localhost - -
-  testid fish [06/Aug/2024:09:30:56 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.10723158448701085570 REST.DELETE.delete_obj myfile "DELETE /fish/myfile1 HTTP/1.1" 200 - - 512 - - - - - - - - - localhost - -
+  testid fish [06/Aug/2024:09:30:25 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.15085270386962380710 REST.PUT.OBJECT myfile "PUT /fish/myfile HTTP/1.1" 200 - 512 512 - - - - - - - - - localhost - -
+  testid fish [06/Aug/2024:09:30:51 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.7046073853138417766 REST.GET.OBJECT myfile "GET /fish/myfile HTTP/1.1" 200 - - 512 - - - - - - - - - localhost - -
+  testid fish [06/Aug/2024:09:30:56 +0000] - testid 9e369a15-5f43-4f07-b638-de920b22f91b.4179.10723158448701085570 REST.DELETE.OBJECT myfile "DELETE /fish/myfile1 HTTP/1.1" 200 - - 512 - - - - - - - - - localhost - -
 
-
+ 
 .. _AWS Logging Record Format: https://docs.aws.amazon.com/AmazonS3/latest/userguide/LogFormat.html
 .. _Bucket Operations: ../s3/bucketops
