@@ -4,10 +4,10 @@
 #include <time.h>
 #include <random>
 #include "common/ceph_time.h"
-#include "fmt/chrono.h"
 #include "rgw_bucket_logging.h"
 #include "rgw_xml.h"
 #include "rgw_sal.h"
+#include "rgw_op.h"
 
 #define dout_subsys ceph_subsys_rgw
 
@@ -32,6 +32,7 @@ bool configuration::decode_xml(XMLObj* obj) {
     } else if (type == "Journal") {
       logging_type = LoggingType::Journal;
     } else {
+      // we don't allow for type "Any" in the configuration
       throw RGWXMLDecoder::err("invalid bucket logging record type: '" + type + "'");
     }
     RGWXMLDecoder::decode_xml("RecordsBatchSize", records_batch_size, o);
@@ -72,6 +73,9 @@ void configuration::dump_xml(Formatter *f) const {
       break;
     case LoggingType::Journal:
       ::encode_xml("LoggingType", "Journal", f);
+      break;
+    case LoggingType::Any:
+      ::encode_xml("LoggingType", "", f);
       break;
   }
   ::encode_xml("RecordsBatchSize", records_batch_size, f);
@@ -114,6 +118,9 @@ void configuration::dump(Formatter *f) const {
         break;
       case LoggingType::Journal:
         encode_json("loggingType", "Journal", f);
+        break;
+      case LoggingType::Any:
+        encode_json("loggingType", "", f);
         break;
     }
     encode_json("recordsBatchSize", records_batch_size, f);
@@ -434,6 +441,10 @@ int log_record(rgw::sal::Driver* driver,
         dash_if_empty_or_null(obj, obj->get_instance()),
         dash_if_empty(etag));
       break;
+    case LoggingType::Any:
+      ldpp_dout(dpp, 1) << "ERROR: failed to format record when writing to logging object '" <<
+        obj_name << "' due to unsupported logging type" << dendl;
+      return -EINVAL;
   }
 
   if (ret = target_bucket->write_logging_object(obj_name,
@@ -470,6 +481,49 @@ int log_record(rgw::sal::Driver* driver,
 std::string object_name_oid(const rgw::sal::Bucket* bucket, const std::string& prefix) {
   // TODO: do i need bucket marker in the name?
   return fmt::format("logging.{}.bucket.{}/{}", bucket->get_tenant(), bucket->get_bucket_id(), prefix);
+}
+
+int log_record(rgw::sal::Driver* driver,
+    LoggingType type,
+    const sal::Object* obj,
+    const req_state* s, 
+    const std::string& op_name, 
+    const std::string& etag, 
+    size_t size, 
+    const DoutPrefixProvider *dpp, 
+    optional_yield y, 
+    bool async_completion) {
+  if (!s->bucket) {
+    // logging only bucket operations
+    return 0;
+  }
+  // check if bucket logging is needed
+  const auto& bucket_attrs = s->bucket->get_attrs();
+  auto iter = bucket_attrs.find(RGW_ATTR_BUCKET_LOGGING);
+  if (iter == bucket_attrs.end()) {
+    return 0;
+  }
+  configuration configuration;
+  try {
+    configuration.enabled = true;
+    auto bl_iter = iter->second.cbegin();
+    decode(configuration, bl_iter);  
+    if (type != LoggingType::Any && configuration.logging_type != type) {
+      return 0;
+    }
+    ldpp_dout(dpp, 20) << "INFO: found matching logging configuration of bucket '" << s->bucket->get_name() << 
+      "' configuration: " << configuration.to_json_str() << dendl;
+    if (auto ret = log_record(driver, obj, s, op_name, etag, size, configuration, dpp, y, async_completion); ret < 0) { 
+      ldpp_dout(dpp, 1) << "ERROR: failed to perform logging for bucket '" << s->bucket->get_name() << 
+        "'. ret=" << ret << dendl;
+      return ret;
+    }
+  } catch (buffer::error& err) {
+    ldpp_dout(dpp, 1) << "ERROR: failed to decode logging attribute '" << RGW_ATTR_BUCKET_LOGGING 
+      << "'. error: " << err.what() << dendl;
+    return  -EINVAL;
+  }
+  return 0;
 }
 
 } // namespace rgw::bucketlogging
