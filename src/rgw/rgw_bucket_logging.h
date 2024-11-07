@@ -136,7 +136,8 @@ int log_record(rgw::sal::Driver* driver,
     const configuration& conf,
     const DoutPrefixProvider *dpp, 
     optional_yield y, 
-    bool async_completion);
+    bool async_completion,
+    bool log_source_bucket);
 
 // commit the pending log objec tto the log bucket
 // and create a new pending log object
@@ -166,6 +167,7 @@ int log_record(rgw::sal::Driver* driver,
     size_t size, 
     const DoutPrefixProvider *dpp, 
     optional_yield y, 
-    bool async_completion);
+    bool async_completion,
+    bool log_source_bucket);
 } // namespace rgw::bucketlogging
 

@@ -451,10 +451,11 @@ done:
       s, 
       op->canonical_name(), 
       "", 
-      (s->object ? s->object->get_size() : 0),
+      (s->src_object ? s->src_object->get_size() : (s->object ? s->object->get_size() : 0)),
       op, 
       yield, 
-      true);
+      true,
+      false);
 
   if (http_ret != nullptr) {
     *http_ret = s->err.http_ret;

@@ -339,7 +339,8 @@ int log_record(rgw::sal::Driver* driver,
     const configuration& conf,
     const DoutPrefixProvider *dpp, 
     optional_yield y,
-    bool async_completion) {
+    bool async_completion,
+    bool log_source_bucket) {
   if (!s->bucket) {
     ldpp_dout(dpp, 1) << "ERROR: only bucket operations are logged" << dendl;
     return -EINVAL;
@@ -395,11 +396,26 @@ int log_record(rgw::sal::Driver* driver,
   if (!s->info.domain.empty() && !fqdn.empty()) {
     fqdn.append(".").append(s->info.domain);
   }
+
+  std::string bucket_owner;
+  std::string bucket_name;
+  if (log_source_bucket) {
+    if (!s->src_object || !s->src_object->get_bucket()) {
+      ldpp_dout(dpp, 1) << "ERROR: source object or bucket is missing when logging source bucket" << dendl;
+      return -EINVAL;
+    }
+    bucket_owner = to_string(s->src_object->get_bucket()->get_owner());
+    bucket_name = s->src_bucket_name;
+  } else {
+    bucket_owner = to_string( s->bucket->get_owner());
+    bucket_name = s->bucket->get_name();
+  }
+
   switch (conf.logging_type) {
     case LoggingType::Standard:
       record = fmt::format("{} {} [{:%d/%b/%Y:%H:%M:%S %z}] {} {} {} {} {} \"{} {}{}{} HTTP/1.1\" {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {} {}",
-        dash_if_empty(to_string(s->bucket->get_owner())),
-        dash_if_empty(s->bucket->get_name()),
+        dash_if_empty(bucket_owner),
+        dash_if_empty(bucket_name),
         t,
         "-", // no requester IP
         dash_if_empty(user_or_account),
@@ -490,7 +506,8 @@ int log_record(rgw::sal::Driver* driver,
     size_t size, 
     const DoutPrefixProvider *dpp, 
     optional_yield y, 
-    bool async_completion) {
+    bool async_completion,
+    bool log_source_bucket) {
   if (!s->bucket) {
     // logging only bucket operations
     return 0;
@@ -511,7 +528,7 @@ int log_record(rgw::sal::Driver* driver,
     }
     ldpp_dout(dpp, 20) << "INFO: found matching logging configuration of bucket '" << s->bucket->get_name() << 
       "' configuration: " << configuration.to_json_str() << dendl;
-    if (auto ret = log_record(driver, obj, s, op_name, etag, size, configuration, dpp, y, async_completion); ret < 0) { 
+    if (auto ret = log_record(driver, obj, s, op_name, etag, size, configuration, dpp, y, async_completion, log_source_bucket); ret < 0) { 
       ldpp_dout(dpp, 1) << "ERROR: failed to perform logging for bucket '" << s->bucket->get_name() << 
         "'. ret=" << ret << dendl;
       return ret;

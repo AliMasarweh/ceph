@@ -4668,7 +4668,7 @@ void RGWPutObj::execute(optional_yield y)
   }
  
   if (!multipart) {
-    op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, s->object->get_size(), this, y, false);
+    op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, s->object->get_size(), this, y, false, false);
     if (op_ret  < 0) {
       return;
    }
@@ -5536,7 +5536,7 @@ void RGWDeleteObj::execute(optional_yield y)
     }
 
     if (op_ret == 0) {
-      if (auto ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, obj_size, this, y, false); ret < 0) {
+      if (auto ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, obj_size, this, y, false, false); ret < 0) {
           // don't reply with an error in case of failed delete logging
           ldpp_dout(this, 5) << "WARNING: DELETE operation ignores bucket logging failure: " << ret << dendl;
       }
@@ -5887,7 +5887,7 @@ void RGWCopyObj::execute(optional_yield y)
   }
 
   etag = s->src_object->get_attrs()[RGW_ATTR_ETAG].to_str();
-  op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, obj_size, this, y, false);
+  op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), etag, obj_size, this, y, false, false);
   if (op_ret < 0) {
     return;
   }
@@ -5920,12 +5920,17 @@ void RGWCopyObj::execute(optional_yield y)
 	   this,
 	   s->yield);
 
+  int ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Standard, s->src_object.get(), s, "REST.COPY.OBJECT_GET", etag, obj_size, this, y, true, true);
+  if (ret < 0) {
+    ldpp_dout(this, 5) << "WARNING: COPY operation ignores bucket logging failure of the GET part: " << ret << dendl;
+  }
+
   if (op_ret < 0) {
     return;
   }
 
   // send request to notification manager
-  int ret = res->publish_commit(this, obj_size, mtime, etag, s->object->get_instance());
+  ret = res->publish_commit(this, obj_size, mtime, etag, s->object->get_instance());
   if (ret < 0) {
     ldpp_dout(this, 1) << "ERROR: publishing notification failed, with error: " << ret << dendl;
     // too late to rollback operation, hence op_ret is not set here
@@ -6876,7 +6881,7 @@ void RGWCompleteMultipart::execute(optional_yield y)
   prefix_map_t processed_prefixes; 
 
   // no etag and size before completion
-  op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), "", 0, this, y, false);
+  op_ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Journal, s->object.get(), s, canonical_name(), "", 0, this, y, false, false);
   if (op_ret < 0) {
     return;
   }
@@ -7296,7 +7301,7 @@ void RGWDeleteMultiObj::handle_individual_object(const rgw_obj_key& o, optional_
     op_ret = 0;
   }
       
-  if (auto ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Any, obj.get(), s, canonical_name(), etag, obj_size, this, y, true); ret < 0) {
+  if (auto ret = rgw::bucketlogging::log_record(driver, rgw::bucketlogging::LoggingType::Any, obj.get(), s, canonical_name(), etag, obj_size, this, y, true, false); ret < 0) {
     // don't reply with an error in case of failed delete logging
     ldpp_dout(this, 5) << "WARNING: multi DELETE operation ignores bucket logging failure: " << ret << dendl;
   }
