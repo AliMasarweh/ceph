@@ -230,6 +230,32 @@ class PSNotificationS3:
 
 test_path = os.path.normpath(os.path.dirname(os.path.realpath(__file__))) + '/../'
 
+
+class BucketLogging:
+    """class to flush logging
+    POST /{bucket}?logging
+    """
+    def __init__(self, conn, bucket_name):
+        self.conn = conn
+        assert bucket_name.strip()
+        self.bucket_name = bucket_name
+        self.resource = '/'+bucket_name
+        self.client = boto3.client('s3',
+                                   endpoint_url='http://'+conn.host+':'+str(conn.port),
+                                   aws_access_key_id=conn.aws_access_key_id,
+                                   aws_secret_access_key=conn.aws_secret_access_key)
+
+    def send_request(self, method, parameters=None):
+        """send request to radosgw"""
+        return make_request(self.conn, method, self.resource,
+                            parameters=parameters, sign_parameters=True)
+
+    def post(self):
+        """post bucket logging for flushing"""
+        parameters = {'logging': None}
+        response, status = self.send_request('POST', parameters)
+        return response, status
+
 def bash(cmd, **kwargs):
     log.debug('running command: %s', ' '.join(cmd))
     kwargs['stdout'] = subprocess.PIPE
