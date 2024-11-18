@@ -23,6 +23,10 @@ client = boto3.client('s3',
         aws_secret_access_key=secret_key)
 
 
+# create the source bucket
+response = client.create_bucket(Bucket=bucket)
+print(response)
+
 # create the target bucket
 response = client.create_bucket(Bucket=target_bucket)
 print(response)
@@ -31,7 +35,7 @@ bucket_logging_conf = {'LoggingEnabled': {
     'TargetBucket': target_bucket,
     'TargetPrefix': 'log/',
     'TargetObjectKeyFormat': {
-      'Simple': {}
+      'SimplePrefix': {}
     },
     'ObjectRollTime': 60,
     'LoggingType': 'Journal',
