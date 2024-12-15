@@ -38,11 +38,11 @@ private:
  */
 class XMLObj
 {
-private:
+public:
   XMLObj *parent;
   std::string obj_type;
 
-protected:
+public:
   std::string data;
   std::multimap<std::string, XMLObj *> children;
   std::map<std::string, std::string> attr_map;

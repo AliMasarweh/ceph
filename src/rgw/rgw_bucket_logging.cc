@@ -44,7 +44,24 @@ bool configuration::decode_xml(XMLObj* obj) {
       logging_type = LoggingType::Journal;
       ldpp_dout(dpp(), 1) << "Ali debug: XML obj " << obj->get_data() << dendl;
       ldpp_dout(dpp(), 1) << "Ali debug: Does it have filter " << (obj->find("Filter").get_next()?"true":"false") << dendl;
-      if (iter = obj->find("Filter"); XMLObj* const filter_o = iter.get_next()) {
+      ldpp_dout(dpp(), 1) << "Ali debug: Does it have filter " << (o->find("Filter").get_next()?"true":"false") << dendl;
+      ldpp_dout(dpp(), 1) << "Ali debug: Multi map " << obj->children << dendl;
+      for (const auto& p: obj->children) {
+        ldpp_dout(dpp(), 1) << "Ali debug: p.first " << p.first << dendl;
+        if (p.second == nullptr) { continue; }
+        for (const auto& p2: p.second->children) {
+          ldpp_dout(dpp(), 1) << "Ali debug: p.second " << p2.first << dendl;
+          if (p2.second == nullptr) { continue; }
+          for (const auto& p3: p2.second->children) {
+            ldpp_dout(dpp(), 1) << "Ali debug: p.third " << p3.first << dendl;
+            if (p3.second == nullptr) { continue; }
+            for (const auto& p4: p3.second->children) {
+              ldpp_dout(dpp(), 1) << "Ali debug: p.forth " << p4.first << dendl;
+            }
+          }
+        }
+      }
+      if (iter = o->find("Filter"); XMLObj* const filter_o = iter.get_next()) {
         ldpp_dout(dpp(), 1) << "Ali debug: Next XML obj " << obj->find("Filter").get_next()->get_data() << dendl;
         RGWXMLDecoder::decode_xml("S3Key", key_filter, filter_o);
         ldpp_dout(dpp(), 1) << "Ali debug: key_filter decoded as S3Key " << key_filter.prefix_rule << dendl;
