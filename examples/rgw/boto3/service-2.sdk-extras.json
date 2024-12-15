@@ -289,7 +289,7 @@
                     "documentation":"indicates how many records to batch in memory before writing to the object. if set to zero, records are written syncronously to the object. if <code>ObjectRollTime</code>e is reached, the batch of records will be written to the object regardless of the number of records. </p>"
                 },
                 "Filter":{
-                    "shape":"LoggingConfigurationFilter",
+                    "shape":"Filter",
                     "documentation":"<p>A filter for all log object. Filter for the object by its key (prefix, suffix and regex).</p>"
                 }
             },
@@ -345,7 +345,7 @@
                 "Journal"
             ]
         },
-        "LoggingConfigurationFilter":{
+        "Filter":{
             "type":"structure",
             "members":{
                 "Key":{
@@ -354,7 +354,8 @@
                     "locationName":"S3Key"
                 }
             },
-            "documentation":"<p>A filter for all log object. Filter for the object by its key (prefix, suffix and regex).</p>"
+            "documentation":"<p>A filter for all log object. Filter for the object by its key (prefix, suffix and regex).</p>",
+            "locationName":"Filter"
         }
     },
     "documentation":"<p/>"
