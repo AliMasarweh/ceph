@@ -9,9 +9,20 @@
 #include "rgw_sal.h"
 #include "rgw_op.h"
 
+#define dout_context g_ceph_context
 #define dout_subsys ceph_subsys_rgw
 
 namespace rgw::bucketlogging {
+
+static const DoutPrefixProvider* dpp() {
+  struct GlobalPrefix : public DoutPrefixProvider {
+    CephContext *get_cct() const override { return dout_context; }
+    unsigned get_subsys() const override { return dout_subsys; }
+    std::ostream& gen_prefix(std::ostream& out) const override { return out; }
+  };
+  static GlobalPrefix global_dpp;
+  return &global_dpp;
+}
 
 bool configuration::decode_xml(XMLObj* obj) {
   const auto throw_if_missing = true;
@@ -31,8 +42,14 @@ bool configuration::decode_xml(XMLObj* obj) {
       logging_type = LoggingType::Standard;
     } else if (type == "Journal") {
       logging_type = LoggingType::Journal;
+      ldpp_dout(dpp(), 1) << "Ali debug: XML obj " << obj->get_data() << dendl;
+      ldpp_dout(dpp(), 1) << "Ali debug: Does it have filter " << (obj->find("Filter").get_next()?"true":"false") << dendl;
       if (iter = obj->find("Filter"); XMLObj* const filter_o = iter.get_next()) {
+        ldpp_dout(dpp(), 1) << "Ali debug: Next XML obj " << obj->find("Filter").get_next()->get_data() << dendl;
         RGWXMLDecoder::decode_xml("S3Key", key_filter, filter_o);
+        ldpp_dout(dpp(), 1) << "Ali debug: key_filter decoded as S3Key " << key_filter.prefix_rule << dendl;
+        RGWXMLDecoder::decode_xml("Key", key_filter, filter_o);
+        ldpp_dout(dpp(), 1) << "Ali debug: key_filter decoded as Key " << key_filter.prefix_rule << dendl;
       }
     } else {
       // we don't allow for type "Any" in the configuration
