@@ -326,9 +326,10 @@ void handle_connection(boost::asio::io_context& context,
       // getting ssl_cipher and tls_version
       if(is_ssl) {
         ceph_assert(typeid(Stream) == typeid(boost::asio::ssl::stream<tcp::socket&>));
-        const auto current_cipher = SSL_get_current_cipher(reinterpret_cast<const SSL *>(stream.native_handle()));
+        const SSL * native_handle = reinterpret_cast<const SSL *>(stream.native_handle());
+        const auto current_cipher = SSL_get_current_cipher(native_handle);
         const auto ssl_cipher = SSL_CIPHER_get_name(current_cipher);
-        const auto tls_version = SSL_CIPHER_standard_name(current_cipher);
+        const auto tls_version = SSL_get_version(native_handle);
         auto& client_env = client.get_env();
         client_env.set("SSL_CIPHER", ssl_cipher);
         client_env.set("TLS_VERSION", tls_version);
