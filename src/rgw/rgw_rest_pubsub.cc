@@ -160,8 +160,10 @@ bool verify_topic_permission(const DoutPrefixProvider* dpp, req_state* s,
                              uint64_t op)
 {
   if (s->auth.identity->get_account()) {
+    ldpp_dout(dpp, 4) << "Ali debug, we have an account " << dendl;
     const bool account_root = (s->auth.identity->get_identity_type() == TYPE_ROOT);
     if (!s->auth.identity->is_owner_of(owner)) {
+      ldpp_dout(dpp, 4) << "Ali debug, we have a root account " << dendl;
       ldpp_dout(dpp, 4) << "cross-account request for resource owner "
           << owner << " != " << s->owner.id << dendl;
       // cross-account requests evaluate the identity-based policies separately
@@ -169,18 +171,22 @@ bool verify_topic_permission(const DoutPrefixProvider* dpp, req_state* s,
       const auto identity_res = evaluate_iam_policies(
           dpp, s->env, *s->auth.identity, account_root, op, arn,
           {}, s->iam_identity_policies, s->session_policies);
+      ldpp_dout(dpp, 4) << "Ali debug, root account | identity_res=" << (int)identity_res << dendl;
       if (identity_res == Effect::Deny) {
         return false;
       }
       const auto resource_res = evaluate_iam_policies(
           dpp, s->env, *s->auth.identity, false, op, arn,
           policy, {}, {});
+      ldpp_dout(dpp, 4) << "Ali debug, root account | resource_res=" << (int)resource_res << dendl;
       return identity_res == Effect::Allow && resource_res == Effect::Allow;
     } else {
       // require an Allow from either identity- or resource-based policy
-      return Effect::Allow == evaluate_iam_policies(
+      const auto ret = evaluate_iam_policies(
           dpp, s->env, *s->auth.identity, account_root, op, arn,
           policy, s->iam_identity_policies, s->session_policies);
+      ldpp_dout(dpp, 4) << "Ali debug, normal account | ret=" << (int)ret << dendl;
+      return Effect::Allow == ret;
     }
   }
 
@@ -188,6 +194,7 @@ bool verify_topic_permission(const DoutPrefixProvider* dpp, req_state* s,
   const auto effect = evaluate_iam_policies(
       dpp, s->env, *s->auth.identity, account_root, op, arn,
       policy, s->iam_identity_policies, s->session_policies);
+  ldpp_dout(dpp, 4) << "Ali debug, no account | effect=" << (int)effect << dendl;
   if (effect == Effect::Deny) {
     return false;
   }
@@ -560,7 +567,9 @@ class RGWPSGetTopicOp : public RGWOp {
     if (ret < 0) {
       return ret;
     }
-    const RGWPubSub ps(driver, get_account_or_tenant(s->owner.id), *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug, RGWPSGetTopicOp: create ps with tenant: '" << topic_arn.account << "'" << dendl;
+    const RGWPubSub ps(driver, topic_arn.account, *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug: tenant: '" << topic_arn.account << "'" << dendl;
     ret = ps.get_topic(this, topic_name, result, y, nullptr);
     if (ret < 0) {
       ldpp_dout(this, 4) << "failed to get topic '" << topic_name << "', ret=" << ret << dendl;
@@ -646,7 +655,9 @@ class RGWPSGetTopicAttributesOp : public RGWOp {
     if (ret < 0) {
       return ret;
     }
-    const RGWPubSub ps(driver, get_account_or_tenant(s->owner.id), *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug, RGWPSGetTopicAttributesOp: create ps with tenant: '" << topic_arn.account << "'" << dendl;
+    const RGWPubSub ps(driver, topic_arn.account, *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug: tenant: '" << topic_arn.account << "'" << dendl;
     ret = ps.get_topic(this, topic_name, result, y, nullptr);
     if (ret < 0) {
       ldpp_dout(this, 4) << "failed to get topic '" << topic_name << "', ret=" << ret << dendl;
@@ -656,6 +667,7 @@ class RGWPSGetTopicAttributesOp : public RGWOp {
       }
       return ret;
     }
+    ldpp_dout(this, 4) << "Ali debug: result owner: '" << get_account_or_tenant(result.owner) << "'" << dendl;
     if (topic_has_endpoint_secret(result) && !verify_transport_security(s->cct, *(s->info.env))) {
       s->err.message = "Topic contains secrets that must be transmitted over a secure transport";
       return -EPERM;
@@ -811,7 +823,9 @@ class RGWPSSetTopicAttributesOp : public RGWOp {
       return ret;
     }
 
-    const RGWPubSub ps(driver, get_account_or_tenant(s->owner.id), *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug, RGWPSSetTopicAttributesOp: create ps with tenant: '" << topic_arn.account << "'" << dendl;
+    const RGWPubSub ps(driver, topic_arn.account, *s->penv.site);
+    ldpp_dout(this, 4) << "Ali debug: tenant: '" << topic_arn.account << "'" << dendl;
     ret = ps.get_topic(this, topic_name, result, y, nullptr);
     if (ret < 0) {
       ldpp_dout(this, 4) << "failed to get topic '" << topic_name
