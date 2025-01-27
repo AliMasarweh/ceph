@@ -4675,6 +4675,7 @@ def test_ps_s3_topic_permissions():
     except Exception as err:
         print('Unexpected error, err:', err)
         print('unexpected error type: '+type(err).__name__)
+        assert False
 
     # 2nd user tries to fetch the topic
     print('fetching toic_arn=', topic_arn)
