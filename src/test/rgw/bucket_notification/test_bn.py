@@ -4631,11 +4631,13 @@ def test_ps_s3_list_topics_v1():
         tenant_topic_conf.del_config(tenant_topic_arn2)
 
 
-@attr('basic_test')
+@attr('ali_basic_test')
 def test_ps_s3_topic_permissions():
     """ test s3 topic set/get/delete permissions """
     conn1 = connection()
-    conn2, arn2 = another_user()
+    tenant2 = 'tenant2'
+    conn2, arn2 = another_user(tenant=tenant2)
+    print("ali debug, arn", arn2)
     zonegroup = get_config_zonegroup()
     bucket_name = gen_bucket_name()
     topic_name = bucket_name + TOPIC_SUFFIX
@@ -4645,9 +4647,9 @@ def test_ps_s3_topic_permissions():
             {
                 "Sid": "Statement",
                 "Effect": "Deny",
-                "Principal": {"AWS": arn2},
-                "Action": ["sns:Publish", "sns:SetTopicAttributes", "sns:GetTopicAttributes", "sns:DeleteTopic", "sns:CreateTopic"],
-                "Resource": f"arn:aws:sns:{zonegroup}::{topic_name}"
+                "Principal": "*",
+                "Action": ["sns:Publish", "sns:SetTopic*", "sns:GetTopic*", "sns:DeleteTopic", "sns:CreateTopic"],
+                "Resource": f"arn:aws:sns:{zonegroup}:{tenant2}:{topic_name}"
             }
         ]
     })
@@ -4656,21 +4658,26 @@ def test_ps_s3_topic_permissions():
     endpoint_args = 'push-endpoint='+endpoint_address+'&amqp-exchange=amqp.direct&amqp-ack-level=none'
     topic_conf = PSTopicS3(conn1, topic_name, zonegroup, endpoint_args=endpoint_args, policy_text=topic_policy)
     topic_arn = topic_conf.set_config()
+    print('toic_arn=', topic_arn)
 
     topic_conf2 = PSTopicS3(conn2, topic_name, zonegroup, endpoint_args=endpoint_args)
     try:
         # 2nd user tries to override the topic
         topic_arn = topic_conf2.set_config()
+        print('Topic was created unexpectedly, topic_arn:', topic_arn)
         assert False, "'AuthorizationError' error is expected"
     except ClientError as err:
+        print('AuthorizationError as expected, err:', err)
         if 'Error' in err.response:
             assert_equal(err.response['Error']['Code'], 'AuthorizationError')
         else:
             assert_equal(err.response['Code'], 'AuthorizationError')
     except Exception as err:
+        print('Unexpected error, err:', err)
         print('unexpected error type: '+type(err).__name__)
 
     # 2nd user tries to fetch the topic
+    print('fetching toic_arn=', topic_arn)
     _, status = topic_conf2.get_config(topic_arn=topic_arn)
     assert_equal(status, 403)
 
