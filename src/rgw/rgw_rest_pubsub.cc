@@ -339,7 +339,9 @@ class RGWPSCreateTopicOp : public RGWOp {
     }
 
     // try to load existing topic for owner and policy
-    const RGWPubSub ps(driver, get_account_or_tenant(s->owner.id), *s->penv.site);
+    ldpp_dout(this, 1) << "Ali debug, RGWPSCreateTopicOp | get_account_or_tenant(s->owner.id):" << (s->owner.id)
+                       << ", topic_arn.account:" << topic_arn.account << dendl;
+    const RGWPubSub ps(driver, topic_arn.account, *s->penv.site);
     rgw_pubsub_topic result;
     ret = ps.get_topic(this, topic_name, result, y, nullptr);
     if (ret == -ENOENT) {
@@ -426,7 +428,7 @@ void RGWPSCreateTopicOp::execute(optional_yield y) {
     // initialize the persistent queue's location, using ':' as the namespace
     // delimiter because its inclusion in a TopicName would break ARNs
     dest.persistent_queue = string_cat_reserve(
-        get_account_or_tenant(s->owner.id), ":", topic_name);
+        topic_arn.account, ":", topic_name);
 
     op_ret = driver->add_persistent_topic(this, y, dest.persistent_queue);
     if (op_ret < 0) {
@@ -438,7 +440,7 @@ void RGWPSCreateTopicOp::execute(optional_yield y) {
   } else if (already_persistent) {  // redundant call to CreateTopic
     dest.persistent_queue = topic->dest.persistent_queue;
   }
-  const RGWPubSub ps(driver, get_account_or_tenant(s->owner.id), *s->penv.site);
+  const RGWPubSub ps(driver, topic_arn.account, *s->penv.site);
   op_ret = ps.create_topic(this, topic_name, dest, topic_arn.to_string(),
                            opaque_data, s->owner.id, policy_text, y);
   if (op_ret < 0) {
