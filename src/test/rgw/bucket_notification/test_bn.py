@@ -4631,11 +4631,12 @@ def test_ps_s3_list_topics_v1():
         tenant_topic_conf.del_config(tenant_topic_arn2)
 
 
-@attr('basic_test')
+@attr('ali_basic_test')
 def test_ps_s3_topic_permissions():
     """ test s3 topic set/get/delete permissions """
     conn1 = connection()
-    conn2, arn2 = another_user()
+    boom_tenant = "boom"
+    conn2, arn2 = another_user(tenant=boom_tenant)
     zonegroup = get_config_zonegroup()
     bucket_name = gen_bucket_name()
     topic_name = bucket_name + TOPIC_SUFFIX
@@ -4647,7 +4648,7 @@ def test_ps_s3_topic_permissions():
                 "Effect": "Deny",
                 "Principal": {"AWS": arn2},
                 "Action": ["sns:Publish", "sns:SetTopicAttributes", "sns:GetTopicAttributes", "sns:DeleteTopic", "sns:CreateTopic"],
-                "Resource": f"arn:aws:sns:{zonegroup}::{topic_name}"
+                "Resource": [f"arn:aws:sns:{zonegroup}::{topic_name}", f"arn:aws:sns:{zonegroup}:{boom_tenant}:{topic_name}"]
             }
         ]
     })
@@ -4669,6 +4670,7 @@ def test_ps_s3_topic_permissions():
             assert_equal(err.response['Code'], 'AuthorizationError')
     except Exception as err:
         print('unexpected error type: '+type(err).__name__)
+        assert False
 
     # 2nd user tries to fetch the topic
     _, status = topic_conf2.get_config(topic_arn=topic_arn)
