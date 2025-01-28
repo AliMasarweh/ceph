@@ -1304,6 +1304,7 @@ bool verify_user_permission(const DoutPrefixProvider* dpp,
     // account users always require an Allow from identity-based policy
     mandatory_policy = true;
   }
+  ldpp_dout(dpp, 1) << "Ali debug, verify_user_permission, mandatory_policy=" << mandatory_policy << dendl;
   return verify_user_permission(dpp, &ps, s->user_acl, s->iam_identity_policies, s->session_policies, res, op, mandatory_policy);
 }
 

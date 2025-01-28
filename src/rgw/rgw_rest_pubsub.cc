@@ -303,9 +303,11 @@ class RGWPSCreateTopicOp : public RGWOp {
     // dest object only stores endpoint info
     dest.arn_topic = topic_name;
     // the topic ARN will be sent in the reply
+    ldpp_dout(this, 1) << "Ali debug, parsing, tenant is " << get_account_or_tenant(s->owner.id) << dendl;
     topic_arn = rgw::ARN{rgw::Partition::aws, rgw::Service::sns,
         driver->get_zone()->get_zonegroup().get_name(),
         get_account_or_tenant(s->owner.id), topic_name};
+    ldpp_dout(this, 1) << "Ali debug, parsing, arn account is " << topic_arn.account << dendl;
     return 0;
   }
 
