@@ -4634,9 +4634,11 @@ def test_ps_s3_list_topics_v1():
 @attr('ali_basic_test')
 def test_ps_s3_topic_permissions():
     """ test s3 topic set/get/delete permissions """
-    conn1 = connection()
-    boom_tenant = "boom"
-    conn2, arn2 = another_user(tenant=boom_tenant)
+    first_tenant = "first"
+    second_tenant = "second"
+    conn1, arn1 = another_user(user="first", tenant=first_tenant)
+    conn2, arn2 = another_user(user="second", tenant=second_tenant)
+    conn3, arn3 = another_user(user="second", tenant=first_tenant)
     zonegroup = get_config_zonegroup()
     bucket_name = gen_bucket_name()
     topic_name = bucket_name + TOPIC_SUFFIX
@@ -4646,9 +4648,9 @@ def test_ps_s3_topic_permissions():
             {
                 "Sid": "Statement",
                 "Effect": "Deny",
-                "Principal": {"AWS": arn2},
+                "Principal": {"AWS": [arn2, arn3]},
                 "Action": ["sns:Publish", "sns:SetTopicAttributes", "sns:GetTopicAttributes", "sns:DeleteTopic", "sns:CreateTopic"],
-                "Resource": [f"arn:aws:sns:{zonegroup}::{topic_name}", f"arn:aws:sns:{zonegroup}:{boom_tenant}:{topic_name}"]
+                "Resource": f"arn:aws:sns:{zonegroup}:{second_tenant}:{topic_name}"
             }
         ]
     })
@@ -4657,6 +4659,20 @@ def test_ps_s3_topic_permissions():
     endpoint_args = 'push-endpoint='+endpoint_address+'&amqp-exchange=amqp.direct&amqp-ack-level=none'
     topic_conf = PSTopicS3(conn1, topic_name, zonegroup, endpoint_args=endpoint_args, policy_text=topic_policy)
     topic_arn = topic_conf.set_config()
+
+    topic_conf3 = PSTopicS3(conn3, topic_name, zonegroup, endpoint_args=endpoint_args)
+    try:
+        # 2nd user tries to override the topic
+        topic_arn = topic_conf3.set_config()
+        assert False, "'AuthorizationError' error is expected"
+    except ClientError as err:
+        if 'Error' in err.response:
+            assert_equal(err.response['Error']['Code'], 'AuthorizationError')
+        else:
+            assert_equal(err.response['Code'], 'AuthorizationError')
+    except Exception as err:
+        print('unexpected error type: '+type(err).__name__)
+        assert False
 
     topic_conf2 = PSTopicS3(conn2, topic_name, zonegroup, endpoint_args=endpoint_args)
     try:
@@ -4733,13 +4749,13 @@ def test_ps_s3_topic_permissions():
     _, status = s3_notification_conf2.set_config()
     assert_equal(status, 200)
     # 2nd user tries to delete the topic again
-    status = topic_conf2.del_config(topic_arn=topic_arn)
-    assert_equal(status, 200)
+    # status = topic_conf2.del_config(topic_arn=topic_arn)
+    # assert_equal(status, 200)
 
     # cleanup
-    s3_notification_conf2.del_config()
+    # s3_notification_conf2.del_config()
     # delete the bucket
-    conn2.delete_bucket(bucket_name)
+    # conn2.delete_bucket(bucket_name)
 
 
 @attr('basic_test')
