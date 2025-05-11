@@ -1257,6 +1257,7 @@ int publish_commit(rgw::sal::Object* obj,
         return ret;
       }
       // args will be released inside the callback
+      ldpp_dout(dpp, 1) << "Ali debug, commit succeded for, event_id " << event_entry.event.id << " creation_time" << event_entry.creation_time << dendl;
       pcc_arg.release();
     } else {
       try {

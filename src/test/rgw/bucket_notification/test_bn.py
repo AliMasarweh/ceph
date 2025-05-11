@@ -3336,7 +3336,7 @@ def test_ps_s3_persistent_topic_configs_ttl():
 
     ps_s3_persistent_topic_configs(persistency_time, config_dict)
 
-@attr('basic_test')
+@attr('ali_basic_test')
 def test_ps_s3_persistent_topic_configs_max_retries():
     """ test persistent topic configurations with max_retries and retry_sleep_duration """
     config_dict = {"time_to_live": "None", "max_retries": 10, "retry_sleep_duration": 1}
