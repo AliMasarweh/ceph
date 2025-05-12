@@ -11,6 +11,7 @@ import io
 import string
 # XXX this should be converted to use boto3
 import boto
+import botocore
 from botocore.exceptions import ClientError
 from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from random import randint
@@ -3343,6 +3344,7 @@ def test_ps_s3_persistent_topic_configs_max_retries():
     buffer = 30
     persistency_time = config_dict["max_retries"]*config_dict["retry_sleep_duration"] + buffer
 
+    botocore.config.Config(retries={'total_max_attempts':1})
     ps_s3_persistent_topic_configs(persistency_time, config_dict)
 
 @attr('manual_test')
