@@ -1012,7 +1012,7 @@ bool RGWBucketSyncPolicyHandler::bucket_exports_data() const
     return true;
   }
 
-  return (zone_svc->need_to_log_data() &&
+  return (site->get_zone().log_data && zone_svc->sync_module_exports_data() &&
           bucket_info->datasync_flag_enabled());
 }
 
