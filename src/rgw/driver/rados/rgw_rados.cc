@@ -6711,18 +6711,10 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *oc
     } else { ldpp_dout(dpp, 20) << "Ali debug no etag!" << dendl; }
     if (s->is_olh && need_follow_olh) {
       auto r = get_olh_target_state(dpp, *octx, bucket_info, obj, s, psm, y);
-      auto inner_iter = s->attrset.find(RGW_ATTR_ETAG);
-    if (inner_iter != s->attrset.end()) {
-      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, found" << dendl;
-      /* get rid of extra null character at the end of the etag, as we used to store it like that */
-      bufferlist &inner_bletag = inner_iter->second;
-      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, c_str=" << inner_bletag.c_str() << " len="
-                         << inner_bletag.length()
-                         << " ,end=" << inner_bletag[inner_bletag.length() - 1] << dendl;
-    } else { ldpp_dout(dpp, 20) << "Ali debug no etag!" << dendl; }
-      return r;
+      if (r < 0) {
+        return r;
+      }
     }
-    return 0;
   }
 
   s->obj = obj;
