@@ -6687,6 +6687,7 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *oc
                                  RGWObjStateManifest** psm, bool follow_olh,
                                  optional_yield y, bool assume_noent)
 {
+  ldpp_dout(dpp, 20) << "Ali debug get_obj_state start" << dendl;
   if (obj.empty()) {
     return -EINVAL;
   }
@@ -6697,9 +6698,29 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *oc
   RGWObjState *s = &(sm->state);
   ldpp_dout(dpp, 20) << "get_obj_state: octx=" << (void *)octx << " obj=" << obj << " state=" << (void *)s << " s->prefetch_data=" << s->prefetch_data << dendl;
   *psm = sm;
+  ldpp_dout(dpp, 20) << "Ali debug get_obj_state s->has_attrs=" << s->has_attrs << dendl;
   if (s->has_attrs) {
+    auto inner_iter = s->attrset.find(RGW_ATTR_ETAG);
+    if (inner_iter != s->attrset.end()) {
+      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, found" << dendl;
+      /* get rid of extra null character at the end of the etag, as we used to store it like that */
+      bufferlist &inner_bletag = inner_iter->second;
+      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, c_str=" << inner_bletag.c_str() << " len="
+                         << inner_bletag.length()
+                         << " ,end=" << inner_bletag[inner_bletag.length() - 1] << dendl;
+    } else { ldpp_dout(dpp, 20) << "Ali debug no etag!" << dendl; }
     if (s->is_olh && need_follow_olh) {
-      return get_olh_target_state(dpp, *octx, bucket_info, obj, s, psm, y);
+      auto r = get_olh_target_state(dpp, *octx, bucket_info, obj, s, psm, y);
+      auto inner_iter = s->attrset.find(RGW_ATTR_ETAG);
+    if (inner_iter != s->attrset.end()) {
+      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, found" << dendl;
+      /* get rid of extra null character at the end of the etag, as we used to store it like that */
+      bufferlist &inner_bletag = inner_iter->second;
+      ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, c_str=" << inner_bletag.c_str() << " len="
+                         << inner_bletag.length()
+                         << " ,end=" << inner_bletag[inner_bletag.length() - 1] << dendl;
+    } else { ldpp_dout(dpp, 20) << "Ali debug no etag!" << dendl; }
+      return r;
     }
     return 0;
   }
@@ -6715,6 +6736,7 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *oc
     r = RGWRados::raw_obj_stat(dpp, raw_obj, &s->size, &s->mtime, &s->epoch, &s->attrset, (s->prefetch_data ? &s->data : NULL), &s->objv_tracker, y);
   }
 
+  ldpp_dout(dpp, 20) << "Ali debug get_obj_state RGWRados::raw_obj_stat=" << r << dendl;
   if (r == -ENOENT) {
     s->exists = false;
     s->has_attrs = true;
@@ -6737,10 +6759,14 @@ int RGWRados::get_obj_state_impl(const DoutPrefixProvider *dpp, RGWObjectCtx *oc
   s->has_attrs = true;
   s->accounted_size = s->size;
 
+  ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag" << dendl;
   auto iter = s->attrset.find(RGW_ATTR_ETAG);
   if (iter != s->attrset.end()) {
+    ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, found" << dendl;
     /* get rid of extra null character at the end of the etag, as we used to store it like that */
     bufferlist& bletag = iter->second;
+    ldpp_dout(dpp, 20) << "Ali debug get_obj_state getting etag, c_str=" << bletag.c_str() << " len=" << bletag.length()
+        << " ,end=" << bletag[bletag.length() - 1] << dendl;
     if (bletag.length() > 0 && bletag[bletag.length() - 1] == '\0') {
       bufferlist newbl;
       bletag.splice(0, bletag.length() - 1, &newbl);
