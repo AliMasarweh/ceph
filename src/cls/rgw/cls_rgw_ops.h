@@ -174,11 +174,13 @@ struct rgw_cls_link_olh_op {
   ceph::real_time unmod_since; /* only create delete marker if newer then this */
   bool high_precision_time;
   rgw_zone_set zones_trace;
+  std::string if_nomatch; /* only create delete marker if etag matches */
+  std::string if_match; /* only create delete marker if etag doesn't match */
 
   rgw_cls_link_olh_op() : delete_marker(false), olh_epoch(0), log_op(false), bilog_flags(0), high_precision_time(false) {}
 
   void encode(ceph::buffer::list& bl) const {
-    ENCODE_START(5, 1, bl);
+    ENCODE_START(6, 1, bl);
     encode(key, bl);
     encode(olh_tag, bl);
     encode(delete_marker, bl);
@@ -192,11 +194,13 @@ struct rgw_cls_link_olh_op {
     encode(unmod_since, bl);
     encode(high_precision_time, bl);
     encode(zones_trace, bl);
+    encode(if_nomatch, bl);
+    encode(if_match, bl);
     ENCODE_FINISH(bl);
   }
 
   void decode(ceph::buffer::list::const_iterator& bl) {
-    DECODE_START(5, bl);
+    DECODE_START(6, bl);
     decode(key, bl);
     decode(olh_tag, bl);
     decode(delete_marker, bl);
@@ -220,6 +224,10 @@ struct rgw_cls_link_olh_op {
     }
     if (struct_v >= 5) {
       decode(zones_trace, bl);
+    }
+    if (struct_v >= 6) {
+      decode(if_nomatch, bl);
+      decode(if_match, bl);
     }
     DECODE_FINISH(bl);
   }

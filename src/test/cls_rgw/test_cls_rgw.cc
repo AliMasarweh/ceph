@@ -101,7 +101,7 @@ void index_complete(librados::IoCtx& ioctx, const string& oid, RGWModifyOp index
     rgw_zone_set zone_set;
     ASSERT_EQ(0, cls_rgw_bucket_link_olh(ioctx, oid, key, olh_tag,
                                          false, tag, &meta, epoch,
-                                         ceph::real_time{}, true, true, zone_set));
+                                         NULL, NULL, ceph::real_time{}, true, true, zone_set));
   }
 }
 

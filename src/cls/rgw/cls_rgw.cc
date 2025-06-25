@@ -1828,6 +1828,18 @@ static int rgw_bucket_link_olh(cls_method_context_t hctx, bufferlist *in, buffer
     return ret;
   }
 
+  if (existed && !op.if_nomatch.empty()) {
+    if(op.if_nomatch == obj.get_dir_entry().meta.etag) {
+      return 0;
+    }
+  }
+
+  if (existed && !op.if_match.empty()) {
+    if(op.if_match != obj.get_dir_entry().meta.etag) {
+      return 0;
+    }
+  }
+
   if (existed && !real_clock::is_zero(op.unmod_since)) {
     timespec mtime = ceph::real_clock::to_timespec(obj.mtime());
     timespec unmod = ceph::real_clock::to_timespec(op.unmod_since);

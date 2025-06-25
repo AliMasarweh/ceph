@@ -363,11 +363,12 @@ int cls_rgw_bi_list(librados::IoCtx& io_ctx, const std::string& oid,
 int cls_rgw_bucket_link_olh(librados::IoCtx& io_ctx, const string& oid,
                             const cls_rgw_obj_key& key, const bufferlist& olh_tag,
                             bool delete_marker, const string& op_tag, const rgw_bucket_dir_entry_meta *meta,
-                            uint64_t olh_epoch, ceph::real_time unmod_since, bool high_precision_time, bool log_op, const rgw_zone_set& zones_trace)
+                            uint64_t olh_epoch, const char *if_nomatch, const char *if_match,
+                            ceph::real_time unmod_since, bool high_precision_time, bool log_op, const rgw_zone_set& zones_trace)
 {
   librados::ObjectWriteOperation op;
   cls_rgw_bucket_link_olh(op, key, olh_tag, delete_marker, op_tag, meta,
-                          olh_epoch, unmod_since, high_precision_time, log_op,
+                          olh_epoch, if_nomatch, if_match, unmod_since, high_precision_time, log_op,
                           zones_trace);
 
   return io_ctx.operate(oid, &op);
@@ -377,7 +378,8 @@ int cls_rgw_bucket_link_olh(librados::IoCtx& io_ctx, const string& oid,
 void cls_rgw_bucket_link_olh(librados::ObjectWriteOperation& op, const cls_rgw_obj_key& key,
                             const bufferlist& olh_tag, bool delete_marker,
                             const string& op_tag, const rgw_bucket_dir_entry_meta *meta,
-                            uint64_t olh_epoch, ceph::real_time unmod_since, bool high_precision_time, bool log_op, const rgw_zone_set& zones_trace)
+                            uint64_t olh_epoch, const char *if_nomatch, const char *if_match,
+                            ceph::real_time unmod_since, bool high_precision_time, bool log_op, const rgw_zone_set& zones_trace)
 {
   bufferlist in, out;
   rgw_cls_link_olh_op call;
@@ -390,6 +392,8 @@ void cls_rgw_bucket_link_olh(librados::ObjectWriteOperation& op, const cls_rgw_o
   }
   call.olh_epoch = olh_epoch;
   call.log_op = log_op;
+  call.if_nomatch = if_nomatch? if_nomatch: "";
+  call.if_match = if_match? if_match: "";
   call.unmod_since = unmod_since;
   call.high_precision_time = high_precision_time;
   call.zones_trace = zones_trace;

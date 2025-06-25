@@ -3405,7 +3405,8 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
 
   if (versioned_op && meta.olh_epoch) {
     bool add_log = log_op && store->svc.zone->need_to_log_data();
-    r = store->set_olh(rctx.dpp, target->get_ctx(), target->get_bucket_info(), obj, false, NULL, *meta.olh_epoch, real_time(), false, rctx.y, meta.zones_trace, add_log);
+    r = store->set_olh(rctx.dpp, target->get_ctx(), target->get_bucket_info(), obj, false, NULL, *meta.olh_epoch,
+                       NULL, NULL, real_time(), false, rctx.y, meta.zones_trace, add_log);
     if (r < 0) {
       return r;
     }
@@ -3894,6 +3895,8 @@ int RGWRados::reindex_obj(rgw::sal::Driver* driver,
 				empty_op_tag,
 				&meta,
 				0, // zero olh_epoch means calculated in CLS
+        NULL, // if_nomatch
+        NULL, // if_match
 				ceph::real_clock::zero(), // unmod_since
 				true, // high_precision_time
 				y,
@@ -4755,7 +4758,7 @@ set_err_state:
     if (olh_epoch && *olh_epoch > 0) {
       constexpr bool log_data_change = true;
       ret = set_olh(rctx.dpp, dest_obj_ctx, dest_bucket_info, dest_obj, false, nullptr,
-                    *olh_epoch, real_time(), false, rctx.y, zones_trace, log_data_change);
+                    *olh_epoch, NULL, NULL, real_time(), false, rctx.y, zones_trace, log_data_change);
     } else {
       // we already have the latest copy
       ret = 0;
@@ -6347,8 +6350,8 @@ int RGWRados::Object::Delete::delete_obj(optional_yield y,
       }
 
       int r = store->set_olh(dpp, target->get_ctx(), target->get_bucket_info(), marker, true,
-                             &meta, params.olh_epoch, params.unmod_since, params.high_precision_time,
-                             y, params.zones_trace, add_log);
+                             &meta, params.olh_epoch, params.if_nomatch, params.if_match, params.unmod_since,
+                             params.high_precision_time, y, params.zones_trace, add_log);
       if (r < 0) {
         return r;
       }
@@ -8653,9 +8656,9 @@ int RGWRados::bucket_index_link_olh(const DoutPrefixProvider *dpp, RGWBucketInfo
                                     RGWObjState& olh_state, const rgw_obj& obj_instance,
                                     bool delete_marker, const string& op_tag,
                                     struct rgw_bucket_dir_entry_meta *meta,
-                                    uint64_t olh_epoch,
+                                    uint64_t olh_epoch, const char *if_nomatch, const char *if_match,
                                     real_time unmod_since, bool high_precision_time,
-				    optional_yield y,
+                                    optional_yield y,
                                     rgw_zone_set *_zones_trace, bool log_data_change)
 {
   rgw_rados_ref ref;
@@ -8681,7 +8684,7 @@ int RGWRados::bucket_index_link_olh(const DoutPrefixProvider *dpp, RGWBucketInfo
 		      cls_rgw_guard_bucket_resharding(op, -ERR_BUSY_RESHARDING);
 		      cls_rgw_bucket_link_olh(op, key, olh_state.olh_tag,
                                               delete_marker, op_tag, meta, olh_epoch,
-					      unmod_since, high_precision_time,
+					      if_nomatch, if_match, unmod_since, high_precision_time,
 					      log_data_change, zones_trace);
                       return rgw_rados_operate(dpp, ref.ioctx, ref.obj.oid, std::move(op), y);
                     }, y);
@@ -9192,8 +9195,8 @@ int RGWRados::set_olh(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
 		      RGWBucketInfo& bucket_info,
 		      const rgw_obj& target_obj, bool delete_marker,
 		      rgw_bucket_dir_entry_meta *meta,
-                      uint64_t olh_epoch, real_time unmod_since, bool high_precision_time,
-                      optional_yield y, rgw_zone_set *zones_trace, bool log_data_change,
+                      uint64_t olh_epoch, const char *if_nomatch, const char *if_match, real_time unmod_since,
+                      bool high_precision_time, optional_yield y, rgw_zone_set *zones_trace, bool log_data_change,
 		      bool skip_olh_obj_update)
 {
   string op_tag;
@@ -9231,7 +9234,7 @@ int RGWRados::set_olh(const DoutPrefixProvider *dpp, RGWObjectCtx& obj_ctx,
       ret = -cct->_conf->rgw_debug_inject_set_olh_err;
     } else {
       ret = bucket_index_link_olh(dpp, bucket_info, *state, target_obj,
-		                              delete_marker, op_tag, meta, olh_epoch, unmod_since,
+		                              delete_marker, op_tag, meta, olh_epoch, if_nomatch, if_match, unmod_since,
 		                              high_precision_time, y, zones_trace, log_data_change);
     }
     if (ret < 0) {
