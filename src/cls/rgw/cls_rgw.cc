@@ -1834,7 +1834,9 @@ static int rgw_bucket_link_olh(cls_method_context_t hctx, bufferlist *in, buffer
     }
   }
 
+  CLS_LOG(0, "Ali debug: rgw_bucket_link_olh_op(): before if | op.if_match=%s, etag=%s\n", op.if_match.c_str(), obj.get_dir_entry().meta.etag.c_str());
   if (existed && !op.if_match.empty()) {
+    CLS_LOG(0, "Ali debug: rgw_bucket_link_olh_op(): op.if_match=%s, etag=%s\n", op.if_match.c_str(), obj.get_dir_entry().meta.etag.c_str());
     if(op.if_match != obj.get_dir_entry().meta.etag) {
       return 0;
     }
