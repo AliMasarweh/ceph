@@ -3231,9 +3231,7 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
   }
 #endif
 
-  RGWObjState *state;
-  RGWObjManifest *manifest = nullptr;
-  int r = target->get_state(rctx.dpp, &state, &manifest, false, rctx.y, assume_noent);
+  int r = target->get_state(rctx.dpp, &(target->state), &(target->manifest), false, rctx.y, assume_noent);
   if (r < 0)
     return r;
 
@@ -3249,7 +3247,7 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
   if (r < 0)
     return r;
 
-  bool is_olh = state->is_olh;
+  bool is_olh = target->state->is_olh;
 
   bool reset_obj = (meta.flags & PUT_OBJ_CREATE) != 0;
 
@@ -3258,8 +3256,6 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
     ptag = index_op->get_optag();
   }
 
-  target->manifest = manifest;
-  target->state = state;
   RGWObjState* current_state = target->state;
   if (!target->obj.key.instance.empty()) {
     r = target->get_current_version_state(rctx.dpp, current_state, rctx.y);
@@ -3296,8 +3292,8 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
     }
   }
 
-  if (state->is_olh) {
-    op.setxattr(RGW_ATTR_OLH_ID_TAG, state->olh_tag);
+  if (target->state->is_olh) {
+    op.setxattr(RGW_ATTR_OLH_ID_TAG, target->state->olh_tag);
   }
 
   struct timespec mtime_ts = real_clock::to_timespec(meta.set_mtime);
@@ -3307,7 +3303,7 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
     /* if we want to overwrite the data, we also want to overwrite the
        xattrs, so just remove the object */
     op.write_full(*meta.data);
-    if (state->compressed) {
+    if (target->state->compressed) {
       uint32_t alloc_hint_flags = librados::ALLOC_HINT_FLAG_INCOMPRESSIBLE;
       op.set_alloc_hint2(0, 0, alloc_hint_flags);
     }
@@ -3405,8 +3401,8 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
     orig_exists = false;
     orig_size = 0;
   } else {
-    orig_exists = state->exists;
-    orig_size = state->accounted_size;
+    orig_exists = target->state->exists;
+    orig_size = target->state->accounted_size;
   }
 
   bool versioned_target = (meta.olh_epoch && *meta.olh_epoch > 0) ||
@@ -3420,7 +3416,7 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
 
   if (!index_op->is_prepared()) {
     tracepoint(rgw_rados, prepare_enter, req_id.c_str());
-    r = index_op->prepare(rctx.dpp, CLS_RGW_OP_ADD, &state->write_tag, rctx.y);
+    r = index_op->prepare(rctx.dpp, CLS_RGW_OP_ADD, &target->state->write_tag, rctx.y);
     tracepoint(rgw_rados, prepare_exit, req_id.c_str());
     if (r < 0)
       return r;
@@ -3464,7 +3460,6 @@ int RGWRados::Object::Write::_do_write_meta(uint64_t size, uint64_t accounted_si
 
   /* note that index_op was using state so we couldn't invalidate it earlier */
   target->invalidate_state();
-  state = NULL;
 
   if (versioned_op && meta.olh_epoch) {
     bool add_log = log_op && store->svc.zone->need_to_log_data();
@@ -6027,9 +6022,6 @@ int RGWRados::bucket_suspended(const DoutPrefixProvider *dpp, rgw_bucket& bucket
 
 int RGWRados::Object::complete_atomic_modification(const DoutPrefixProvider *dpp, bool keep_tail, optional_yield y)
 {
-  int r = get_state(dpp, &state, &manifest, false, y);
-  if (r < 0)
-    return r;
   if ((!manifest) || keep_tail)
     return 0;
 
