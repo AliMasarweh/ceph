@@ -1486,6 +1486,69 @@ int VersionedDirectory::set_cur_version_ent(const DoutPrefixProvider* dpp, FSEnt
   return 0;
 }
 
+bool VersionedDirectory::is_delete_marker(const Attrs& attrs) const
+{
+  auto iter = attrs.find(RGW_POSIX_ATTR_VERSION);
+  if (iter == attrs.end()) {
+    return false;
+  }
+
+  const bufferlist& bl = iter->second;
+
+  try {
+    auto iter = bl.cbegin();
+    uint16_t flags;
+    decode(flags, iter);
+    return flags & rgw_bucket_dir_entry::FLAG_DELETE_MARKER;
+  } catch (buffer::error&) {
+    return false;
+  }
+}
+
+int VersionedDirectory::choose_latest_version(const DoutPrefixProvider* dpp,
+                                              optional_yield y,
+                                              std::string& name)
+{
+  ceph::real_time latest_mtime;
+  bool found = false;
+
+  int ret = for_each(dpp, [this, &dpp, &y, &name, &latest_mtime, &found](const char *n) {
+    if (n[0] == '.') {
+      return 0;
+    }
+
+    std::unique_ptr<FSEnt> ent;
+    int ret = get_ent(dpp, y, n, std::string(), ent);
+    if (ret < 0) {
+      return ret;
+    }
+
+    ret = ent->stat(dpp);
+    if (ret < 0) {
+      return ret;
+    }
+
+    auto mtime = from_statx_timestamp(ent->get_stx().stx_mtime);
+    if (!found || mtime >= latest_mtime) {
+      latest_mtime = mtime;
+      name = n;
+      found = true;
+    }
+
+    return 0;
+  });
+
+  if (ret < 0) {
+    return ret;
+  }
+
+  if (!found) {
+    name.clear();
+  }
+
+  return 0;
+}
+
 int VersionedDirectory::stat(const DoutPrefixProvider* dpp, bool force)
 {
   int ret = Directory::stat(dpp, force);
@@ -1532,15 +1595,13 @@ int VersionedDirectory::stat(const DoutPrefixProvider* dpp, bool force)
   stx.stx_size = cur_version->get_stx().stx_size;
 
   if (cur_version->get_stx().stx_size == 0) {
-    //Possibly a delete marker
     Attrs attrs;
     ret = cur_version->read_attrs(dpp, null_yield, attrs);
     if (ret < 0) {
       return ret;
     }
-    bufferlist bl;
-    if (rgw::sal::get_attr(attrs, RGW_POSIX_ATTR_VERSION, bl)) {
-    //  cur_version.reset();
+    if (is_delete_marker(attrs)) {
+      cur_version.reset();
     }
   }
 
@@ -1759,8 +1820,10 @@ int VersionedDirectory::remove(const DoutPrefixProvider* dpp, optional_yield y,
     key.instance = gen_rand_instance_name();
     tgtname = get_key_fname(key, /*use_version=*/true);
 
-    result->delete_marker = true;
-    result->version_id = key.instance;
+    if (result) {
+      result->delete_marker = true;
+      result->version_id = key.instance;
+    }
 
     f = std::make_unique<File>(tgtname, this, ctx);
     ret = add_delete_marker(dpp, y, f, tgtname);
@@ -1792,14 +1855,15 @@ int VersionedDirectory::remove(const DoutPrefixProvider* dpp, optional_yield y,
       if (ret < 0) {
         return ret;
       }
-      bufferlist bl;
-      if (get_attr(attrs, RGW_POSIX_ATTR_VERSION, bl)) {
-       result->delete_marker = true;
+      if (result && is_delete_marker(attrs)) {
+        result->delete_marker = true;
       }
       ret = f->remove(dpp, y, /*delete_children=*/true, result);
       if (ret < 0)
        return ret;
-      result->version_id = instance_id;
+      if (result) {
+        result->version_id = instance_id;
+      }
     } else {
       return ret;
     }
@@ -1812,16 +1876,10 @@ int VersionedDirectory::remove(const DoutPrefixProvider* dpp, optional_yield y,
       return ret;
     }
     newlink = true;
-    /* Create new current version symlink */
-    ret = for_each(dpp, [&tgtname](const char *n) {
-      if (n[0] == '.') {
-        /* Skip dotfiles */
-        return 0;
-      }
-
-      tgtname = n;
-      return 0;
-    });
+    ret = choose_latest_version(dpp, y, tgtname);
+    if (ret < 0) {
+      return ret;
+    }
 
     if (tgtname.empty()) {
       /* We're empty, nuke us */
@@ -1873,15 +1931,13 @@ int VersionedDirectory::fill_cache(const DoutPrefixProvider *dpp, optional_yield
         FSEnt::FLAG_CURRENT :
         FSEnt::FLAG_NONE;
 
-      // Delete markers are zero byte files
       if (ent->get_stx().stx_size == 0) {
         Attrs attrs;
-        bufferlist bl;
         ret = ent->read_attrs(dpp, y, attrs);
         if (ret < 0) {
           return ret;
         }
-        if (get_attr(attrs, RGW_POSIX_ATTR_VERSION, bl)) {
+        if (is_delete_marker(attrs)) {
           fill_flags |= FSEnt::FLAG_DELETE_MARKER;
         }
       }

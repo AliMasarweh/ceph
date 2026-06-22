@@ -338,6 +338,8 @@ public:
   int remove_symlink(const DoutPrefixProvider *dpp, optional_yield y, std::string match = "");
   int add_file(const DoutPrefixProvider *dpp, std::unique_ptr<FSEnt>&& file, bool* existed = nullptr, bool temp_file = false);
   int add_delete_marker(const DoutPrefixProvider* dpp, optional_yield y, std::unique_ptr<File>& marker, std::string& name);
+  int choose_latest_version(const DoutPrefixProvider* dpp, optional_yield y, std::string& name);
+  bool is_delete_marker(const Attrs& attrs) const;
   FSEnt* get_cur_version_ent() { return cur_version.get(); };
   int set_cur_version_ent(const DoutPrefixProvider *dpp, FSEnt* file);
   virtual std::unique_ptr<FSEnt> clone_base() override {
