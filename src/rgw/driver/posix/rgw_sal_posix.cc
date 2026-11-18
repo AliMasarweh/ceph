@@ -131,6 +131,72 @@ static inline bool get_attr(Attrs& attrs, const char* name, bufferlist& bl)
   return true;
 }
 
+/* Stored ETag attrs don't have a single representation: objects written
+ * through the S3 path store the bare hex digest, while the attr generated for
+ * a sideloaded file by POSIXObject::generate_etag() is NUL terminated.
+ * Normalize before comparing against a client supplied value. */
+static inline std::string get_etag_str(bufferlist& bl)
+{
+  std::string etag(bl.c_str(), bl.length());
+  while (!etag.empty() && etag.back() == '\0') {
+    etag.pop_back();
+  }
+  return etag;
+}
+
+/* Evaluate If-Match/If-None-Match for a write.  'exists' and 'attrs' must
+ * describe the object currently stored under the target key, not the object
+ * being written.  Mirrors RGWRados::Object::check_preconditions(). */
+static int check_etag_preconditions(const DoutPrefixProvider* dpp,
+                                    const char* caller, bool exists,
+                                    Attrs& attrs, const char* if_match,
+                                    const char* if_nomatch)
+{
+  if (if_match) {
+    if (strcmp(if_match, "*") == 0) {
+      // test the object is existing
+      if (!exists) {
+        return -ENOENT;
+      }
+    } else {
+      bufferlist bl;
+      if (!exists || !get_attr(attrs, RGW_ATTR_ETAG, bl)) {
+        ldpp_dout(dpp, 10) << caller << " if_match object has no etag" << dendl;
+        return exists ? -ERR_PRECONDITION_FAILED : -ENOENT;
+      }
+      std::string if_match_str = rgw_string_unquote(if_match);
+      std::string etag = get_etag_str(bl);
+      ldpp_dout(dpp, 10) << caller << " if_match: " << if_match_str
+                         << ", etag: " << etag << dendl;
+      if (if_match_str != etag) {
+        return -ERR_PRECONDITION_FAILED;
+      }
+    }
+  }
+
+  if (if_nomatch) {
+    if (strcmp(if_nomatch, "*") == 0) {
+      // test the object is NOT existing
+      if (exists) {
+        return -ERR_PRECONDITION_FAILED;
+      }
+    } else if (exists) {
+      bufferlist bl;
+      if (get_attr(attrs, RGW_ATTR_ETAG, bl)) {
+        std::string if_nomatch_str = rgw_string_unquote(if_nomatch);
+        std::string etag = get_etag_str(bl);
+        ldpp_dout(dpp, 10) << caller << " if_nomatch: " << if_nomatch_str
+                           << ", etag: " << etag << dendl;
+        if (if_nomatch_str == etag) {
+          return -ERR_PRECONDITION_FAILED;
+        }
+      }
+    }
+  }
+
+  return 0;
+}
+
 template <typename F>
 static bool decode_attr(Attrs &attrs, const char *name, F &f) {
   bufferlist bl;
@@ -3329,11 +3395,6 @@ int POSIXObject::copy_object(const ACLOwner& owner,
                       << dendl;
     return -EINVAL;
   }
-  // XXX: destination conditionals are not checked by the POSIX driver yet
-  if (dest_if_match || dest_if_nomatch) {
-    ldpp_dout(dpp, 10) << "destination If-Match/If-None-Match not supported on the POSIX driver" << dendl;
-    return -ERR_NOT_IMPLEMENTED;
-  }
   bool has_instance = !get_key().instance.empty();
 
   // Source must exist, and we need to know if it's a shadow obj
@@ -3348,6 +3409,36 @@ int POSIXObject::copy_object(const ACLOwner& owner,
     /* For copy, no instance meance copy all instances.  Clear intance id if it
      * was passed in clear. */
     get_key().instance.clear();
+  }
+
+  /* Conditional copy.  The destination preconditions apply to whatever is
+   * currently stored under the destination key, so evaluate them before any
+   * data is written.  Use a separate handle: dobj is about to be overwritten
+   * with the source's data and attrs, and in a versioned bucket its key may
+   * already carry the new version id, which doesn't exist yet. */
+  if (dest_if_match || dest_if_nomatch) {
+    rgw_obj_key current_key = dest_object->get_key();
+    current_key.instance.clear();
+
+    std::unique_ptr<rgw::sal::Object> current =
+        dest_bucket->get_object(current_key);
+
+    int state_ret = current->load_obj_state(dpp, y);
+    if (state_ret < 0 && state_ret != -ENOENT) {
+      ldpp_dout(dpp, 0) << "ERROR: could not load state of destination object "
+                        << dest_object->get_name()
+                        << " to check copy preconditions: "
+                        << cpp_strerror(state_ret) << dendl;
+      return state_ret;
+    }
+
+    ret = check_etag_preconditions(dpp, "POSIXObject::copy_object",
+                                   state_ret == 0 && current->exists(),
+                                   current->get_attrs(), dest_if_match,
+                                   dest_if_nomatch);
+    if (ret < 0) {
+      return ret;
+    }
   }
 
   if (state.obj != dobj->state.obj) {
@@ -4111,7 +4202,52 @@ int POSIXObject::POSIXReadOp::get_attr(const DoutPrefixProvider* dpp, const char
 int POSIXObject::POSIXDeleteOp::delete_obj(const DoutPrefixProvider* dpp,
 					   optional_yield y, uint32_t flags)
 {
-  int ret = source->delete_object(dpp, y, flags, nullptr, nullptr);
+  int ret;
+  uint64_t orig_size = 0;
+  auto exists = source->check_exists(dpp);
+  if (exists) {
+    orig_size = source->get_size();
+  }
+
+  if (params.size_match.has_value() && exists) {
+    ldpp_dout(dpp, 10) << "POSIXObject::POSIXDeleteOp::delete_obj size_match: " << params.size_match.value() << ", size: " << orig_size << dendl;
+    if (orig_size != params.size_match) {
+      return -ERR_PRECONDITION_FAILED;
+    }
+  }
+
+  if (!real_clock::is_zero(params.last_mod_time_match) && exists) {
+    timespec ctime = real_clock::to_timespec(source->get_mtime());
+    timespec last_mod_time = real_clock::to_timespec(params.last_mod_time_match);
+    if (!params.high_precision_time) {
+      ctime.tv_nsec = 0;
+      last_mod_time.tv_nsec = 0;
+    }
+
+    ldpp_dout(dpp, 10) << "POSIXObject::POSIXDeleteOp::delete_obj If-Match-Last-Modified-Time: " << params.last_mod_time_match
+                       << ", Last-Modified: " << ctime << ", with high_precision_time:" << params.high_precision_time << dendl;
+    if (ctime != last_mod_time) {
+      return -ERR_PRECONDITION_FAILED;
+    }
+  }
+
+  if (params.if_match && strcmp(params.if_match, "*") != 0 && exists) {
+    bufferlist bl;
+    if (!rgw::sal::get_attr(source->get_attrs(), RGW_ATTR_ETAG, bl)) {
+      ldpp_dout(dpp, 10) << "POSIXObject::POSIXDeleteOp::delete_obj if_match "
+                            "object has no etag" << dendl;
+      return -ERR_PRECONDITION_FAILED;
+    }
+    std::string if_match_str = rgw_string_unquote(params.if_match);
+    std::string etag = get_etag_str(bl);
+    ldpp_dout(dpp, 10) << "POSIXObject::POSIXDeleteOp::delete_obj if_match: "
+                       << if_match_str << ", etag: " << etag << dendl;
+    if (if_match_str != etag) {
+      return -ERR_PRECONDITION_FAILED;
+    }
+  }
+
+  ret = source->delete_object(dpp, y, flags, nullptr, nullptr);
   if (ret < 0) {
     return ret;
   }
@@ -4365,6 +4501,40 @@ int POSIXMultipartUpload::complete(const DoutPrefixProvider *dpp,
   rgw::sal::Attrs& attrs = target_obj->get_attrs();
 
   ofs = accounted_size = 0;
+
+  /* Conditional write.  The preconditions apply to whatever is currently
+   * stored under the target key, but target_obj->get_attrs() already holds the
+   * metadata of the *new* object: RGWCompleteMultipart::execute() calls
+   * set_attrs() on it before we get here, and the computed MPU ETag is written
+   * into that same map below.  Load the current on-disk state through a
+   * separate handle, and do it before any of the work below so that a failed
+   * precondition doesn't leave a half assembled upload behind. */
+  if (if_match || if_nomatch) {
+    /* In a versioned bucket RGWCompleteMultipart::execute() has already stamped
+     * target_obj with the *new* version id, which doesn't exist yet.  Drop the
+     * instance so that the lookup resolves the current version instead. */
+    rgw_obj_key current_key = target_obj->get_key();
+    current_key.instance.clear();
+
+    std::unique_ptr<rgw::sal::Object> current =
+        target_obj->get_bucket()->get_object(current_key);
+
+    int state_ret = current->load_obj_state(dpp, y);
+    if (state_ret < 0 && state_ret != -ENOENT) {
+      ldpp_dout(dpp, 0) << "ERROR: could not load state of "
+                        << target_obj->get_name()
+                        << " to check write preconditions: "
+                        << cpp_strerror(state_ret) << dendl;
+      return state_ret;
+    }
+
+    ret = check_etag_preconditions(dpp, "POSIXMultipartUpload::complete",
+                                   state_ret == 0 && current->exists(),
+                                   current->get_attrs(), if_match, if_nomatch);
+    if (ret < 0) {
+      return ret;
+    }
+  }
 
   do {
     ret = list_parts(dpp, cct, max_parts, marker, &marker, &truncated, y);
@@ -4624,28 +4794,6 @@ int POSIXMultipartWriter::complete(
   int ret;
   POSIXUploadPartInfo info;
 
-  if (if_match) {
-    if (strcmp(if_match, "*") == 0) {
-      // test the object is existing
-      if (!part_file->exists()) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-    } else {
-      Attrs attrs;
-      bufferlist bl;
-      ret = part_file->read_attrs(rctx.dpp, rctx.y, attrs);
-      if (ret < 0) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-      if (!get_attr(attrs, RGW_ATTR_ETAG, bl)) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-      if (strncmp(if_match, bl.c_str(), bl.length()) != 0) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-    }
-  }
-
   info.num = part_num;
   info.etag = etag;
   info.cksum = cksum;
@@ -4710,37 +4858,13 @@ int POSIXAtomicWriter::complete(size_t accounted_size, const std::string& etag,
     orig_size = obj->get_size();
   }
 
-  if (if_match) {
-    if (strcmp(if_match, "*") == 0) {
-      // test the object is existing
-      if (!exists) {
-	return -ERR_PRECONDITION_FAILED;
-      }
-    } else {
-      bufferlist bl;
-      if (!get_attr(obj->get_attrs(), RGW_ATTR_ETAG, bl)) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-      if (strncmp(if_match, bl.c_str(), bl.length()) != 0) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-    }
-  }
-  if (if_nomatch) {
-    if (strcmp(if_nomatch, "*") == 0) {
-      // test the object is not existing
-      if (exists) {
-	return -ERR_PRECONDITION_FAILED;
-      }
-    } else {
-      bufferlist bl;
-      if (!get_attr(obj->get_attrs(), RGW_ATTR_ETAG, bl)) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-      if (strncmp(if_nomatch, bl.c_str(), bl.length()) == 0) {
-        return -ERR_PRECONDITION_FAILED;
-      }
-    }
+  /* POSIXAtomicWriter::prepare() loaded the existing object's attrs into obj,
+   * and the new attrs are not applied until set_attrs() below, so obj still
+   * describes what is currently stored under the key. */
+  ret = check_etag_preconditions(dpp, "POSIXAtomicWriter::complete", exists,
+                                 obj->get_attrs(), if_match, if_nomatch);
+  if (ret < 0) {
+    return ret;
   }
 
   bufferlist owner_bl;
